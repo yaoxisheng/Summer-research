@@ -18,6 +18,22 @@ vectorSet::vectorSet(int size_S, int size_Z, int size_A, float gamma){
   this->gamma = gamma;
 }
 
+vectorList vectorSet::cross(vectorList &A, vectorList &B){
+  vector<float> tempVec(size_S);
+  list<vector<float> > tempList;
+  vectorList vList;
+  for(auto itr=A.vList.begin();itr!=A.vList.end();++itr){
+    for(auto itr2=B.vList.begin();itr2!=B.vList.end();++itr2){
+      for(int i=0;i<size_S;i++){
+        tempVec[i] = (*itr)[i] + (*itr2)[i];
+      }
+      tempList.push_back(tempVec);
+    }
+  }
+  vList.vList = tempList;
+  return vList;
+}
+
 void vectorSet::setReward(list<vector<float> > &reward){
   if(reward.size()!=size_A){    
     throw e;
@@ -96,14 +112,6 @@ void vectorSet::setProb_ob(list<list<vector<float> > > &prob_ob){
   }
 }
 
-void vectorSet::setAlpha(vector<float> &alpha){
-  if(alpha.size()!=size_S){    
-    throw e;
-  }
-  this->alpha.resize(size_S);
-  this->alpha = alpha;  
-}
-
 void vectorSet::setBelief_state(vector<float> &belief_state){
   if(belief_state.size()!=size_S){    
     throw e;
@@ -142,13 +150,7 @@ void vectorSet::show_parameter(){
     }
     cout<<endl;
   }
-  
-  cout<<"alpha vector:"<<endl;
-  for(auto itr=alpha.begin();itr!=alpha.end();++itr){
-    cout<<*itr<<" ";
-  }
-  cout<<endl;
-  
+    
   cout<<"belief state vector:"<<endl;
   for(auto itr=belief_state.begin();itr!=belief_state.end();++itr){
     cout<<*itr<<" ";
@@ -156,17 +158,78 @@ void vectorSet::show_parameter(){
   cout<<endl;
 }
 
+list<list<vectorList> > vectorSet::projection(list<vector<float> > &alpha){
+  vector<float> tempVec(size_S);
+  list<vector<float> > tempList;  
+  list<vectorList> temp_vSet(size_Z);
+  list<list<vectorList> > vSet_A_Z(size_A,temp_vSet);
+  list<list<vectorList> >::iterator itr_vSet;
+  list<vectorList>::iterator itr_vSet2;  
+  list<list<vector<float> > >::iterator itrProb_tr,itrProb_ob;
+  list<vector<float> >::iterator itrReward,itrProb_tr2,itrProb_ob2;
+  float tempSum;
+  itrProb_tr = prob_tr.begin();
+  itrProb_ob = prob_ob.begin();
+  itr_vSet = vSet_A_Z.begin();
+  itrReward = reward.begin();  
+  itrProb_tr2 = itrProb_tr->begin();
+  itrProb_ob2 = itrProb_ob->begin();
+  itr_vSet2 = itr_vSet->begin();  
+  for(int i=0;i<size_A;i++){          
+    for(int j=0;j<size_Z;j++){
+      tempList.clear();     
+      for(auto itrAlpha=alpha.begin();itrAlpha!=alpha.end();++itrAlpha){
+        itrProb_tr2 = itrProb_tr->begin();
+        for(int k=0;k<size_S;k++){
+          tempSum = 0;          
+          for(int l=0;l<size_S;l++){          
+            tempSum += (*itrAlpha)[l]*(*itrProb_ob2)[l]*(*itrProb_tr2)[l];          
+          }
+          tempVec[k] = (*itrReward)[k]/size_Z + gamma*tempSum;          
+          ++itrProb_tr2;
+        }
+        tempList.push_back(tempVec);        
+      }      
+      ++itrProb_ob2;
+      itr_vSet2->vList = tempList;
+      ++itr_vSet2;      
+    }
+    ++itrProb_tr;
+    itrProb_tr2 = itrProb_tr->begin();
+    ++itrProb_ob;
+    itrProb_ob2 = itrProb_ob->begin();    
+    ++itr_vSet;
+    itr_vSet2 = itr_vSet->begin();
+    ++itrReward;      
+  } 
+  return vSet_A_Z;
+}
 
+list<vectorList> vectorSet::cross_sum(list<list<vectorList> > &vSet_A_Z){
+  list<vectorList> vSet(size_A);  
+  list<vectorList>::iterator itr_vSet_A_Z2,itr_vSet_A_Z3,itr_vSet;
+  vectorList temp_vList;  
+  itr_vSet = vSet.begin();
+  for(auto itr_vSet_A_Z=vSet_A_Z.begin();itr_vSet_A_Z!=vSet_A_Z.end();++itr_vSet_A_Z){
+    itr_vSet_A_Z2 = itr_vSet_A_Z->begin();
+    itr_vSet_A_Z3 = itr_vSet_A_Z->begin();
+    ++itr_vSet_A_Z3;    
+    temp_vList = cross(*itr_vSet_A_Z2,*itr_vSet_A_Z3);    
+    for(int j=0;j<size_Z-2;j++){
+      ++itr_vSet_A_Z3;
+      temp_vList = cross(temp_vList,*itr_vSet_A_Z3);       
+    }
+    itr_vSet->vList = temp_vList.vList;
+  }  
+  return vSet;
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
+vectorList vectorSet::vSet_union(list<vectorList> &vSet_A){
+  vectorList temp_vList;
+  for(auto itr_vSet=vSet_A.begin();itr_vSet!=vSet_A.end();++itr_vSet){
+    for(auto itr=itr_vSet->vList.begin();itr!=itr_vSet->vList.end();++itr){
+      temp_vList.vList.push_back(*itr);
+    }
+  }
+  return temp_vList;
+}
