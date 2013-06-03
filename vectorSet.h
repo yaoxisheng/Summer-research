@@ -1,15 +1,20 @@
-#include<vector>
 #include<list>
+#include<vector>
 
 using namespace std;
 
+struct sVector{
+  vector<float> sVec;
+  int index_a;
+  int index_z;
+};
+
 class vectorSet{
   public:
-    vectorSet(){
-      index_a = -1;
-      index_z = -1;
-    };
-    list<vector<float> > vSet;
-    int index_a,index_z;
+    vectorSet(){};
+    list<sVector> vSet;
+    void set_vSet(list<vector<float> > vSet);
+    void set_index(int index_a, int index_z);
+    void vSet_unique();
     ~vectorSet(){};
 };
