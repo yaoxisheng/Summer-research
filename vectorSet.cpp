@@ -5,12 +5,13 @@
 
 using namespace std;
 
-void vectorSet::set_vSet(list<vector<float> > vSet){
+void vectorSet::set_vSet(list<sVector> vSet){
   this->vSet.resize(vSet.size());
-  list<sVector>::iterator itr;  
+  list<sNode>::iterator itr;
   itr = this->vSet.begin();  
   for(auto itr2=vSet.begin();itr2!=vSet.end();++itr2){
-    itr->sVec = *itr2;
+    /* avoid copy */
+    itr->sVec.v = itr2->v;
     ++itr;
   }
 }
@@ -27,9 +28,10 @@ void vectorSet::vSet_unique(){
   for(auto itr=vSet.begin();itr!=vSet.end();++itr){
     auto itr2=itr;
     ++itr2;
-    for(;itr2!=vSet.end();){      
-      if(itr->sVec==itr2->sVec){
-        itr2 = vSet.erase(itr2);        
+    for(;itr2!=vSet.end();){
+      if(itr->sVec.v==itr2->sVec.v){
+        /* accuracy */
+        itr2 = vSet.erase(itr2);
       }
       else{
         ++itr2;        

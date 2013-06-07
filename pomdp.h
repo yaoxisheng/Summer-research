@@ -5,10 +5,6 @@
 
 using namespace std;
 
-struct sMatrix{
-  vector<vector<float> > sMat;
-};
-
 class errorPomdp{};
 
 vectorSet update_vectorSet(const vectorSet &B, float gamma, const vector<vector<sMatrix> > T_Matrix,
@@ -17,7 +13,7 @@ vector<vector<vectorSet> > projection(const vectorSet &B, float gamma, const vec
                                       const vector<sVector> &r_Matrix, const vector<vector<bool> > &valid_Matrix);
 vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &sMat,
                           const sVector &sVec, int size_Z);
-vector<float> projection_vector(const sVector &b, float gamma, const sMatrix &sMat,
+sVector projection_vector(const sVector &b, float gamma, const sMatrix &sMat,
                                 const sVector &sVec, int size_Z);                                
 vector<vectorSet> cross_sum(vector<vector<vectorSet> > &B_p);
 vectorSet cross_sum_list(vector<vectorSet> &B_p_a);
@@ -32,10 +28,11 @@ class pomdp{
     float gamma;
     /* some factor */
     vector<vector<sMatrix> > T_Matrix;
-    /* T Matrix for projection */
+    /* T matrix for projection */
     vector<sVector> r_Matrix;
-    /* r Matrix for projection */
-    vector<vector<bool> > valid_Matrix;   
+    /* r matrix for projection */
+    vector<vector<bool> > valid_Matrix;
+    /* valid matrix for projection */
   public:
     pomdp(){};
     /* create am empty pomdp class */

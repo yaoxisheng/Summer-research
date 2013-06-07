@@ -40,16 +40,16 @@ void pomdp::read_file(string file){
   for(int i=0;i<size_A;){
     T_Matrix[i].resize(size_Z);    
     for(int j=0;j<size_Z;){
-      T_Matrix[i][j].sMat.resize(size_S);
+      T_Matrix[i][j].m.resize(size_S);
       for(int k=0;k<size_S;){
         getline(iFile,tempLine);
         if(tempLine.empty()) continue;
-        T_Matrix[i][j].sMat[k].resize(size_S);       
+        T_Matrix[i][j].m[k].resize(size_S);       
         iStream.clear();     
         iStream.str(tempLine);
         for(int l=0;l<size_S;l++){
-          iStream>>T_Matrix[i][j].sMat[k][l];          
-          if(T_Matrix[i][j].sMat[k][l]!=0 && valid_Matrix[i][j]==false){
+          iStream>>T_Matrix[i][j].m[k][l];          
+          if(T_Matrix[i][j].m[k][l]!=0 && valid_Matrix[i][j]==false){
             valid_Matrix[i][j] = true;
           }
         }
@@ -63,11 +63,11 @@ void pomdp::read_file(string file){
   for(int i=0;i<size_A;){
     getline(iFile,tempLine);
     if(tempLine.empty()) continue;
-    r_Matrix[i].sVec.resize(size_S);    
+    r_Matrix[i].v.resize(size_S);    
     iStream.clear();     
     iStream.str(tempLine);
     for(int j=0;j<size_S;j++){
-      iStream>>r_Matrix[i].sVec[j];
+      iStream>>r_Matrix[i].v[j];
     }
     i++;
   }
@@ -92,9 +92,9 @@ void pomdp::show_parameter(){
   cout<<endl;
   for(int i=0;i<T_Matrix.size();i++){
     for(int j=0;j<T_Matrix[i].size();j++){
-      for(int k=0;k<T_Matrix[i][j].sMat.size();k++){
-        for(int l=0;l<T_Matrix[i][j].sMat[k].size();l++){
-          cout<<fixed<<T_Matrix[i][j].sMat[k][l]<<" ";
+      for(int k=0;k<T_Matrix[i][j].m.size();k++){
+        for(int l=0;l<T_Matrix[i][j].m[k].size();l++){
+          cout<<fixed<<T_Matrix[i][j].m[k][l]<<" ";
         }
         cout<<endl;
       }
@@ -104,8 +104,8 @@ void pomdp::show_parameter(){
   }
   cout<<endl<<endl;
   for(int i=0;i<r_Matrix.size();i++){
-    for(int j=0;j<r_Matrix[i].sVec.size();j++){
-      cout<<fixed<<r_Matrix[i].sVec[j]<<" ";
+    for(int j=0;j<r_Matrix[i].v.size();j++){
+      cout<<fixed<<r_Matrix[i].v[j]<<" ";
     }
     cout<<endl;
   }
@@ -136,7 +136,7 @@ vector<vector<vectorSet> > projection(const vectorSet &B, float gamma, const vec
     for(int j=0;j<T_Matrix[i].size();j++){
       if(!valid_Matrix[i][j]) continue;
       B_p[i][j] = projection_list(B,gamma,T_Matrix[i][j],r_Matrix[i],T_Matrix[i].size());
-      /* eliminate duplicate */      
+      /* eliminate duplicate */
       B_p[i][j].vSet_unique();
       /* set index */
       B_p[i][j].set_index(i,j);      
@@ -148,34 +148,35 @@ vector<vector<vectorSet> > projection(const vectorSet &B, float gamma, const vec
 vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &sMat,
                           const sVector &sVec, int size_Z){
   vectorSet vSet_a_z;
-  list<sVector>::iterator itr_vSet;
-  list<sVector>::const_iterator itr_vSet2; 
+  list<sNode>::iterator itr_vSet;
+  list<sNode>::const_iterator itr_vSet2; 
   vSet_a_z.vSet.resize(B.vSet.size());
   itr_vSet = vSet_a_z.vSet.begin();
   itr_vSet2 = B.vSet.begin();  
   for(int i=0;i<B.vSet.size();i++){
-    itr_vSet->sVec = projection_vector(*itr_vSet2,gamma,sMat,sVec,size_Z);
+    /* avoid copy */
+    itr_vSet->sVec = projection_vector(itr_vSet2->sVec,gamma,sMat,sVec,size_Z);
     itr_vSet++;
     itr_vSet2++;
   }
   return vSet_a_z;
 }
 
-vector<float> projection_vector(const sVector &b, float gamma, const sMatrix &sMat,
+sVector projection_vector(const sVector &b, float gamma, const sMatrix &sMat,
                                 const sVector &sVec, int size_Z){
-  vector<float> tempVec;
+  sVector temp_sVec;  
   float tempSum;
   int size_S;
-  size_S = b.sVec.size();
-  tempVec.resize(size_S);
+  size_S = b.v.size();
+  temp_sVec.v.resize(size_S);  
   for(int i=0;i<size_S;i++){
     tempSum = 0;
     for(int j=0;j<size_S;j++){
-      tempSum += sMat.sMat[i][j]*b.sVec[j];
+      tempSum += sMat.m[i][j]*b.v[j];
     }
-    tempVec[i] = sVec.sVec[i]/size_Z + gamma*tempSum;
-  }
-  return tempVec;
+    temp_sVec.v[i] = sVec.v[i]/size_Z + gamma*tempSum;
+  }  
+  return temp_sVec;
 }
 
 vector<vectorSet> cross_sum(vector<vector<vectorSet> > &B_p){
@@ -203,21 +204,22 @@ vectorSet cross_sum_list(vector<vectorSet> &B_p_a){
 }
 
 vectorSet cross(const vectorSet &A, const vectorSet &B){  
+  sVector temp_sVec;  
   vector<float> tempVec;
-  list<vector<float> > tempList;
+  list<sVector> tempList;
   vectorSet vSet;
   int size_S;
   if(A.vSet.empty() && !B.vSet.empty()) return B;
   if(!A.vSet.empty() && B.vSet.empty()) return A;
   if(A.vSet.empty() && B.vSet.empty()) return vSet;
-  size_S = A.vSet.begin()->sVec.size();  
-  tempVec.resize(size_S);
+  size_S = A.vSet.begin()->sVec.v.size();
+  temp_sVec.v.resize(size_S);  
   for(auto itr=A.vSet.begin();itr!=A.vSet.end();++itr){    
     for(auto itr2=B.vSet.begin();itr2!=B.vSet.end();++itr2){
-      for(int i=0;i<size_S;i++){
-        tempVec[i] = itr->sVec[i] + itr2->sVec[i];
-      }
-      tempList.push_back(tempVec);
+      for(int i=0;i<size_S;i++){        
+        temp_sVec.v[i] = itr->sVec.v[i] + itr2->sVec.v[i];
+      }      
+      tempList.push_back(temp_sVec);
     }
   }
   vSet.set_vSet(tempList);
@@ -238,8 +240,8 @@ vectorSet vSet_union(vector<vectorSet> &B_c){
 
 void print_vSet(const vectorSet &v){
   for(auto itr=v.vSet.begin();itr!=v.vSet.end();++itr){
-    for(int i=0;i<itr->sVec.size();i++){
-      cout<<itr->sVec[i]<<" ";
+    for(int i=0;i<itr->sVec.v.size();i++){
+      cout<<itr->sVec.v[i]<<" ";
     }
     cout<<endl;
   }

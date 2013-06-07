@@ -1,19 +1,14 @@
 #include<list>
 #include<vector>
+#include"struct.h"
 
 using namespace std;
-
-struct sVector{
-  vector<float> sVec;
-  int index_a;
-  int index_z;
-};
 
 class vectorSet{
   public:
     vectorSet(){};
-    list<sVector> vSet;
-    void set_vSet(list<vector<float> > vSet);
+    list<sNode> vSet;
+    void set_vSet(list<sVector> vSet);
     void set_index(int index_a, int index_z);
     void vSet_unique();
     ~vectorSet(){};
