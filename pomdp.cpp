@@ -137,14 +137,14 @@ vector<vector<vectorSet> > projection(const vectorSet &B, float gamma, const vec
       if(!valid_Matrix[i][j]) continue;
       B_p[i][j] = projection_list(B,gamma,T_Matrix[i][j],r_Matrix[i],T_Matrix[i].size());
       /* eliminate duplicate */
-      B_p[i][j].vSet_unique();
+      //B_p[i][j].vSet_unique();
       /* set index */
       B_p[i][j].set_index(i,j);      
     }
   }
   return B_p;
 }
-
+/*
 vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &sMat,
                           const sVector &sVec, int size_Z){
   vectorSet vSet_a_z;
@@ -154,21 +154,48 @@ vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &sMat,
   itr_vSet = vSet_a_z.vSet.begin();
   itr_vSet2 = B.vSet.begin();  
   for(int i=0;i<B.vSet.size();i++){
-    /* avoid copy */
+    /* avoid copy 
     itr_vSet->sVec = projection_vector(itr_vSet2->sVec,gamma,sMat,sVec,size_Z);
     itr_vSet++;
     itr_vSet2++;
   }
   return vSet_a_z;
 }
+*/
+
+vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &sMat,
+                          const sVector &sVec, int size_Z){
+  bool exist;
+  vectorSet vSet_a_z;
+  sVector temp_sVec;
+  sNode temp_sNode;
+  list<sNode>::iterator itr_vSet;
+  list<sNode>::const_iterator itr_vSet2;
+  itr_vSet2 = B.vSet.begin();
+  for(int i=0;i<B.vSet.size();i++){
+    /* avoid copy */
+    temp_sVec = projection_vector(itr_vSet2->sVec,gamma,sMat,sVec,size_Z);
+    exist = false;
+    for(itr_vSet=vSet_a_z.vSet.begin();itr_vSet!=vSet_a_z.vSet.end();++itr_vSet){      
+      if(temp_sVec==itr_vSet->sVec){
+        exist = true;
+        break;
+      }      
+    }
+    if(exist==true) continue;
+    temp_sNode.sVec = temp_sVec;
+    vSet_a_z.vSet.push_back(temp_sNode);    
+  }
+  return vSet_a_z;
+}
 
 sVector projection_vector(const sVector &b, float gamma, const sMatrix &sMat,
                                 const sVector &sVec, int size_Z){
-  sVector temp_sVec;  
+  sVector temp_sVec;
   float tempSum;
   int size_S;
   size_S = b.v.size();
-  temp_sVec.v.resize(size_S);  
+  temp_sVec.v.resize(size_S);
   for(int i=0;i<size_S;i++){
     tempSum = 0;
     for(int j=0;j<size_S;j++){
@@ -185,7 +212,7 @@ vector<vectorSet> cross_sum(vector<vector<vectorSet> > &B_p){
   for(int i=0;i<B_p.size();i++){
     B_c[i] = cross_sum_list(B_p[i]);
     /* eliminate duplicate */
-    B_c[i].vSet_unique();
+    //B_c[i].vSet_unique();
     /* set index */
     B_c[i].set_index(i,-1);
   }  
@@ -234,15 +261,6 @@ vectorSet vSet_union(vector<vectorSet> &B_c){
     }
   }
   /* eliminate duplicate */
-  temp_vSet.vSet_unique();
+  //temp_vSet.vSet_unique();
   return temp_vSet;
-}
-
-void print_vSet(const vectorSet &v){
-  for(auto itr=v.vSet.begin();itr!=v.vSet.end();++itr){
-    for(int i=0;i<itr->sVec.v.size();i++){
-      cout<<itr->sVec.v[i]<<" ";
-    }
-    cout<<endl;
-  }
 }

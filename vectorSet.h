@@ -13,3 +13,5 @@ class vectorSet{
     void vSet_unique();
     ~vectorSet(){};
 };
+
+void print_vSet(const vectorSet &v);

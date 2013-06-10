@@ -40,3 +40,12 @@ void vectorSet::vSet_unique(){
     if(itr==vSet.end()) break;    
   }  
 }
+
+void print_vSet(const vectorSet &v){
+  for(auto itr=v.vSet.begin();itr!=v.vSet.end();++itr){
+    for(int i=0;i<itr->sVec.v.size();i++){
+      cout<<itr->sVec.v[i]<<" ";
+    }
+    cout<<endl;
+  }
+}

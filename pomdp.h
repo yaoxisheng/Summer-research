@@ -19,7 +19,6 @@ vector<vectorSet> cross_sum(vector<vector<vectorSet> > &B_p);
 vectorSet cross_sum_list(vector<vectorSet> &B_p_a);
 vectorSet cross(const vectorSet &A, const vectorSet &B);
 vectorSet vSet_union(vector<vectorSet> &B_c);
-void print_vSet(const vectorSet &v);
 
 class pomdp{
   private:
