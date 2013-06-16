@@ -39,6 +39,12 @@ class pomdp{
     /* create an pomdp class with parameters read from a file */
     void read_file(string file);
     /* read parameters from a file */
+    int get_size_S();
+    /* return the size_S */
+    int get_size_Z();
+    /* return the size_Z */
+    int get_size_A();
+    /* return the size_A */
     vector<vector<sMatrix> > get_T_Matrix();
     /* return the T Matrix */
     vector<sVector> get_r_Matrix();

@@ -40,16 +40,16 @@ void pomdp::read_file(string file){
   for(int i=0;i<size_A;){
     T_Matrix[i].resize(size_Z);    
     for(int j=0;j<size_Z;){
-      T_Matrix[i][j].m.resize(size_S);
+      T_Matrix[i][j].resize(size_S);
       for(int k=0;k<size_S;){
         getline(iFile,tempLine);
         if(tempLine.empty()) continue;
-        T_Matrix[i][j].m[k].resize(size_S);       
+        T_Matrix[i][j][k].resize(size_S);       
         iStream.clear();     
         iStream.str(tempLine);
         for(int l=0;l<size_S;l++){
-          iStream>>T_Matrix[i][j].m[k][l];          
-          if(T_Matrix[i][j].m[k][l]!=0 && valid_Matrix[i][j]==false){
+          iStream>>T_Matrix[i][j][k][l];          
+          if(T_Matrix[i][j][k][l]!=0 && valid_Matrix[i][j]==false){
             valid_Matrix[i][j] = true;
           }
         }
@@ -63,15 +63,27 @@ void pomdp::read_file(string file){
   for(int i=0;i<size_A;){
     getline(iFile,tempLine);
     if(tempLine.empty()) continue;
-    r_Matrix[i].v.resize(size_S);    
+    r_Matrix[i].resize(size_S);    
     iStream.clear();     
     iStream.str(tempLine);
     for(int j=0;j<size_S;j++){
-      iStream>>r_Matrix[i].v[j];
+      iStream>>r_Matrix[i][j];
     }
     i++;
   }
   iFile.close(); 
+}
+
+int pomdp::get_size_S(){
+  return size_S;
+}
+
+int pomdp::get_size_Z(){
+  return size_Z;
+}
+
+int pomdp::get_size_A(){
+  return size_A;
 }
 
 vector<vector<sMatrix> > pomdp::get_T_Matrix(){
@@ -86,15 +98,14 @@ vector<vector<bool> > pomdp::get_valid_Matrix(){
   return valid_Matrix;
 }
 
-
 void pomdp::show_parameter(){
   cout<<size_S<<" "<<size_A<<" "<<size_Z<<endl;
   cout<<endl;
   for(int i=0;i<T_Matrix.size();i++){
     for(int j=0;j<T_Matrix[i].size();j++){
-      for(int k=0;k<T_Matrix[i][j].m.size();k++){
-        for(int l=0;l<T_Matrix[i][j].m[k].size();l++){
-          cout<<fixed<<T_Matrix[i][j].m[k][l]<<" ";
+      for(int k=0;k<T_Matrix[i][j].size();k++){
+        for(int l=0;l<T_Matrix[i][j][k].size();l++){
+          cout<<fixed<<T_Matrix[i][j][k][l]<<" ";
         }
         cout<<endl;
       }
@@ -104,8 +115,8 @@ void pomdp::show_parameter(){
   }
   cout<<endl<<endl;
   for(int i=0;i<r_Matrix.size();i++){
-    for(int j=0;j<r_Matrix[i].v.size();j++){
-      cout<<fixed<<r_Matrix[i].v[j]<<" ";
+    for(int j=0;j<r_Matrix[i].size();j++){
+      cout<<fixed<<r_Matrix[i][j]<<" ";
     }
     cout<<endl;
   }
@@ -122,9 +133,21 @@ vectorSet update_vectorSet(const vectorSet &B, float gamma, const vector<vector<
                            const vector<sVector> r_Matrix, const vector<vector<bool> > &valid_Matrix){
   vector<vector<vectorSet> > B_p;
   vector<vectorSet> B_c;
+  vectorSet B_u;
   B_p = projection(B,gamma,T_Matrix,r_Matrix,valid_Matrix);  
-  B_c = cross_sum(B_p);  
-  return vSet_union(B_c);
+  /* for(int i=0;i<B_p.size();i++){
+    for(int j=0;j<B_p[i].size();j++){
+      cout<<i<<","<<j<<":"<<endl;
+      print_vSet(B_p[i][j]);
+    }
+  } */
+  B_c = cross_sum(B_p);
+  /* for(int i=0;i<B_c.size();i++){
+    cout<<i<<":"<<endl;
+    print_vSet(B_c[i]);
+  } */
+  B_u = vSet_union(B_c);
+  return B_u;
 }
 
 vector<vector<vectorSet> > projection(const vectorSet &B, float gamma, const vector<vector<sMatrix> > &T_Matrix,
@@ -135,56 +158,26 @@ vector<vector<vectorSet> > projection(const vectorSet &B, float gamma, const vec
     B_p[i].resize(T_Matrix[i].size());
     for(int j=0;j<T_Matrix[i].size();j++){
       if(!valid_Matrix[i][j]) continue;
-      B_p[i][j] = projection_list(B,gamma,T_Matrix[i][j],r_Matrix[i],T_Matrix[i].size());
-      /* eliminate duplicate */
-      //B_p[i][j].vSet_unique();
+      B_p[i][j] = projection_list(B,gamma,T_Matrix[i][j],r_Matrix[i],T_Matrix[i].size());      
       /* set index */
-      B_p[i][j].set_index(i,j);      
+      B_p[i][j].set_index(i,j);
     }
   }
   return B_p;
 }
-/*
-vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &sMat,
-                          const sVector &sVec, int size_Z){
-  vectorSet vSet_a_z;
-  list<sNode>::iterator itr_vSet;
-  list<sNode>::const_iterator itr_vSet2; 
-  vSet_a_z.vSet.resize(B.vSet.size());
-  itr_vSet = vSet_a_z.vSet.begin();
-  itr_vSet2 = B.vSet.begin();  
-  for(int i=0;i<B.vSet.size();i++){
-    /* avoid copy 
-    itr_vSet->sVec = projection_vector(itr_vSet2->sVec,gamma,sMat,sVec,size_Z);
-    itr_vSet++;
-    itr_vSet2++;
-  }
-  return vSet_a_z;
-}
-*/
 
 vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &sMat,
                           const sVector &sVec, int size_Z){
-  bool exist;
   vectorSet vSet_a_z;
   sVector temp_sVec;
   sNode temp_sNode;
-  list<sNode>::iterator itr_vSet;
-  list<sNode>::const_iterator itr_vSet2;
-  itr_vSet2 = B.vSet.begin();
-  for(int i=0;i<B.vSet.size();i++){
-    /* avoid copy */
-    temp_sVec = projection_vector(itr_vSet2->sVec,gamma,sMat,sVec,size_Z);
-    exist = false;
-    for(itr_vSet=vSet_a_z.vSet.begin();itr_vSet!=vSet_a_z.vSet.end();++itr_vSet){      
-      if(temp_sVec==itr_vSet->sVec){
-        exist = true;
-        break;
-      }      
-    }
-    if(exist==true) continue;
+  for(auto itr_vSet=B.vSet.begin();itr_vSet!=B.vSet.end();++itr_vSet){    
+    temp_sVec = projection_vector(itr_vSet->sVec,gamma,sMat,sVec,size_Z);
+    /* check if the projected vector exists in the current vectorSet, if so, 
+       just throw it away */
+    if(check_existence(vSet_a_z,temp_sVec)) continue;
     temp_sNode.sVec = temp_sVec;
-    vSet_a_z.vSet.push_back(temp_sNode);    
+    vSet_a_z.vSet.push_back(temp_sNode);
   }
   return vSet_a_z;
 }
@@ -194,14 +187,14 @@ sVector projection_vector(const sVector &b, float gamma, const sMatrix &sMat,
   sVector temp_sVec;
   float tempSum;
   int size_S;
-  size_S = b.v.size();
-  temp_sVec.v.resize(size_S);
+  size_S = b.size();
+  temp_sVec.resize(size_S);
   for(int i=0;i<size_S;i++){
     tempSum = 0;
     for(int j=0;j<size_S;j++){
-      tempSum += sMat.m[i][j]*b.v[j];
+      tempSum += sMat[i][j]*b[j];
     }
-    temp_sVec.v[i] = sVec.v[i]/size_Z + gamma*tempSum;
+    temp_sVec[i] = sVec[i]/size_Z + gamma*tempSum;
   }  
   return temp_sVec;
 }
@@ -210,9 +203,7 @@ vector<vectorSet> cross_sum(vector<vector<vectorSet> > &B_p){
   vector<vectorSet> B_c;  
   B_c.resize(B_p.size());  
   for(int i=0;i<B_p.size();i++){
-    B_c[i] = cross_sum_list(B_p[i]);
-    /* eliminate duplicate */
-    //B_c[i].vSet_unique();
+    B_c[i] = cross_sum_list(B_p[i]);    
     /* set index */
     B_c[i].set_index(i,-1);
   }  
@@ -231,36 +222,39 @@ vectorSet cross_sum_list(vector<vectorSet> &B_p_a){
 }
 
 vectorSet cross(const vectorSet &A, const vectorSet &B){  
-  sVector temp_sVec;  
-  vector<float> tempVec;
-  list<sVector> tempList;
-  vectorSet vSet;
-  int size_S;
-  if(A.vSet.empty() && !B.vSet.empty()) return B;
-  if(!A.vSet.empty() && B.vSet.empty()) return A;
-  if(A.vSet.empty() && B.vSet.empty()) return vSet;
-  size_S = A.vSet.begin()->sVec.v.size();
-  temp_sVec.v.resize(size_S);  
+  sVector temp_sVec;
+  sNode temp_sNode;  
+  vectorSet temp_vSet;
+  int size_S;  
+  if(A.vSet.empty() && !B.vSet.empty()) return B;  
+  else if(!A.vSet.empty() && B.vSet.empty()) return A;
+  else if(A.vSet.empty() && B.vSet.empty()) return temp_vSet;
+  size_S = A.vSet.begin()->sVec.size();
+  temp_sVec.resize(size_S);
   for(auto itr=A.vSet.begin();itr!=A.vSet.end();++itr){    
     for(auto itr2=B.vSet.begin();itr2!=B.vSet.end();++itr2){
       for(int i=0;i<size_S;i++){        
-        temp_sVec.v[i] = itr->sVec.v[i] + itr2->sVec.v[i];
-      }      
-      tempList.push_back(temp_sVec);
+        temp_sVec[i] = itr->sVec[i] + itr2->sVec[i];
+      }
+      /* check if the cross summed vector exists in the current vectorSet, if so, 
+         just throw it away */
+      if(check_existence(temp_vSet,temp_sVec)) continue;
+      temp_sNode.sVec = temp_sVec;
+      temp_vSet.vSet.push_back(temp_sNode);
     }
-  }
-  vSet.set_vSet(tempList);
-  return vSet;
+  }  
+  return temp_vSet;
 }
 
 vectorSet vSet_union(vector<vectorSet> &B_c){
   vectorSet temp_vSet;
   for(int i=0;i<B_c.size();i++){
     for(auto itr=B_c[i].vSet.begin();itr!=B_c[i].vSet.end();++itr){
+      /* check if the vector to be unioned exists in the current vectorSet, if so,
+         just throw it away */
+      if(check_existence(temp_vSet,itr->sVec)) continue;
       temp_vSet.vSet.push_back(*itr);
     }
-  }
-  /* eliminate duplicate */
-  //temp_vSet.vSet_unique();
+  }  
   return temp_vSet;
 }

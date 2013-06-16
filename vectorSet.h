@@ -6,8 +6,8 @@ using namespace std;
 
 class vectorSet{
   public:
-    vectorSet(){};
     list<sNode> vSet;
+    vectorSet(){};   
     void set_vSet(list<sVector> vSet);
     void set_index(int index_a, int index_z);
     void vSet_unique();
@@ -15,3 +15,4 @@ class vectorSet{
 };
 
 void print_vSet(const vectorSet &v);
+bool check_existence(const vectorSet &v, const sVector &sVec);

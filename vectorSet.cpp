@@ -10,8 +10,8 @@ void vectorSet::set_vSet(list<sVector> vSet){
   list<sNode>::iterator itr;
   itr = this->vSet.begin();  
   for(auto itr2=vSet.begin();itr2!=vSet.end();++itr2){
-    /* avoid copy */
-    itr->sVec.v = itr2->v;
+    /* copy constructor of vector avoids copying automatically */
+    itr->sVec = *itr2;
     ++itr;
   }
 }
@@ -29,8 +29,7 @@ void vectorSet::vSet_unique(){
     auto itr2=itr;
     ++itr2;
     for(;itr2!=vSet.end();){
-      if(itr->sVec.v==itr2->sVec.v){
-        /* accuracy */
+      if(isEqual(itr->sVec,itr2->sVec,0.000001)){              
         itr2 = vSet.erase(itr2);
       }
       else{
@@ -38,14 +37,21 @@ void vectorSet::vSet_unique(){
       }
     }
     if(itr==vSet.end()) break;    
-  }  
+  }
 }
 
 void print_vSet(const vectorSet &v){
   for(auto itr=v.vSet.begin();itr!=v.vSet.end();++itr){
-    for(int i=0;i<itr->sVec.v.size();i++){
-      cout<<itr->sVec.v[i]<<" ";
+    for(int i=0;i<itr->sVec.size();i++){
+      cout<<itr->sVec[i]<<" ";
     }
     cout<<endl;
   }
+}
+
+bool check_existence(const vectorSet &v, const sVector &sVec){
+  for(auto itr=v.vSet.begin();itr!=v.vSet.end();++itr){
+    if(isEqual(itr->sVec,sVec,0.000001)) return true;
+  }
+  return false;
 }
