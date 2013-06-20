@@ -1,3 +1,6 @@
+#ifndef __POMDP_H_INCLUDED__
+#define __POMDP_H_INCLUDED__
+
 #include<vector>
 #include<list>
 #include<string>
@@ -7,18 +10,18 @@ using namespace std;
 
 class errorPomdp{};
 
-vectorSet update_vectorSet(const vectorSet &B, float gamma, const vector<vector<sMatrix> > T_Matrix,
-                           const vector<sVector> r_Matrix, const vector<vector<bool> > &valid_Matrix);
+vectorSet update_vectorSet(const vectorSet &B, float gamma, const vector<vector<sMatrix> > &T_Matrix,
+                           const vector<sVector> &r_Matrix, const vector<vector<bool> > &valid_Matrix);
 vector<vector<vectorSet> > projection(const vectorSet &B, float gamma, const vector<vector<sMatrix> > &T_Matrix,
                                       const vector<sVector> &r_Matrix, const vector<vector<bool> > &valid_Matrix);
-vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &sMat,
-                          const sVector &sVec, int size_Z);
-sVector projection_vector(const sVector &b, float gamma, const sMatrix &sMat,
-                                const sVector &sVec, int size_Z);                                
-vector<vectorSet> cross_sum(vector<vector<vectorSet> > &B_p);
-vectorSet cross_sum_list(vector<vectorSet> &B_p_a);
+vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &T_a_z,
+                          const sVector &r_a, int size_Z);
+sVector projection_vector(const sVector &b, float gamma, const sMatrix &T_a_z,
+                                const sVector &r_a, int size_Z);                                
+vector<vectorSet> cross_sum(const vector<vector<vectorSet> > &B_p);
+vectorSet cross_sum_list(const vector<vectorSet> &B_p_a);
 vectorSet cross(const vectorSet &A, const vectorSet &B);
-vectorSet vSet_union(vector<vectorSet> &B_c);
+vectorSet vSet_union(const vector<vectorSet> &B_c);
 
 class pomdp{
   private:
@@ -55,3 +58,5 @@ class pomdp{
     /* print the parameters */
     ~pomdp(){};  
 };
+
+#endif

@@ -1,3 +1,6 @@
+#ifndef __STRUCT_H_INCLUDED__
+#define __STRUCT_H_INCLUDED__
+
 #include<vector>
 #include<cmath>
 
@@ -13,3 +16,5 @@ struct sNode{
 };
 
 bool isEqual(const sVector &a, const sVector &b, float epsilon);
+
+#endif

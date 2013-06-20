@@ -5,11 +5,11 @@
 
 using namespace std;
 
-void vectorSet::set_vSet(list<sVector> vSet){
-  this->vSet.resize(vSet.size());
+void vectorSet::set_vSet(list<sVector> sVec_list){
+  this->vSet.resize(sVec_list.size());
   list<sNode>::iterator itr;
   itr = this->vSet.begin();  
-  for(auto itr2=vSet.begin();itr2!=vSet.end();++itr2){
+  for(auto itr2=sVec_list.begin();itr2!=sVec_list.end();++itr2){
     /* copy constructor of vector avoids copying automatically */
     itr->sVec = *itr2;
     ++itr;
@@ -23,6 +23,7 @@ void vectorSet::set_index(int index_a, int index_z){
   }
 }
 
+/*
 void vectorSet::vSet_unique(){
   if(vSet.size()<=1) return;
   for(auto itr=vSet.begin();itr!=vSet.end();++itr){
@@ -39,6 +40,7 @@ void vectorSet::vSet_unique(){
     if(itr==vSet.end()) break;    
   }
 }
+*/
 
 void print_vSet(const vectorSet &v){
   for(auto itr=v.vSet.begin();itr!=v.vSet.end();++itr){
@@ -49,9 +51,9 @@ void print_vSet(const vectorSet &v){
   }
 }
 
-bool check_existence(const vectorSet &v, const sVector &sVec){
+bool check_existence(const vectorSet &v, const sVector &sVec, float epsilon){
   for(auto itr=v.vSet.begin();itr!=v.vSet.end();++itr){
-    if(isEqual(itr->sVec,sVec,0.000001)) return true;
+    if(isEqual(itr->sVec,sVec,epsilon)) return true;
   }
   return false;
 }

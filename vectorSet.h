@@ -1,3 +1,6 @@
+#ifndef __VECTORSET_H_INCLUDED__
+#define __VECTORSET_H_INCLUDED__
+
 #include<list>
 #include<vector>
 #include"struct.h"
@@ -8,11 +11,13 @@ class vectorSet{
   public:
     list<sNode> vSet;
     vectorSet(){};   
-    void set_vSet(list<sVector> vSet);
+    void set_vSet(list<sVector> sVec_list);
     void set_index(int index_a, int index_z);
-    void vSet_unique();
+    //void vSet_unique();
     ~vectorSet(){};
 };
 
 void print_vSet(const vectorSet &v);
-bool check_existence(const vectorSet &v, const sVector &sVec);
+bool check_existence(const vectorSet &v, const sVector &sVec, float epsilon);
+
+#endif

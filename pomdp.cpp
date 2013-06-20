@@ -6,6 +6,7 @@
 #include<sstream>
 #include<algorithm>
 #include"pomdp.h"
+#include"purge.h"
 
 using namespace std;
 
@@ -129,24 +130,17 @@ void pomdp::show_parameter(){
   }
 }
 
-vectorSet update_vectorSet(const vectorSet &B, float gamma, const vector<vector<sMatrix> > T_Matrix,
-                           const vector<sVector> r_Matrix, const vector<vector<bool> > &valid_Matrix){
+vectorSet update_vectorSet(const vectorSet &B, float gamma, const vector<vector<sMatrix> > &T_Matrix,
+                           const vector<sVector> &r_Matrix, const vector<vector<bool> > &valid_Matrix){
   vector<vector<vectorSet> > B_p;
   vector<vectorSet> B_c;
   vectorSet B_u;
-  B_p = projection(B,gamma,T_Matrix,r_Matrix,valid_Matrix);  
-  /* for(int i=0;i<B_p.size();i++){
-    for(int j=0;j<B_p[i].size();j++){
-      cout<<i<<","<<j<<":"<<endl;
-      print_vSet(B_p[i][j]);
-    }
-  } */
+  B_p = projection(B,gamma,T_Matrix,r_Matrix,valid_Matrix); 
+  //cout<<"finish projection!"<<endl;
   B_c = cross_sum(B_p);
-  /* for(int i=0;i<B_c.size();i++){
-    cout<<i<<":"<<endl;
-    print_vSet(B_c[i]);
-  } */
+  //cout<<"finish cross sum!"<<endl;  
   B_u = vSet_union(B_c);
+  //cout<<"finish union!"<<endl;
   return B_u;
 }
 
@@ -166,24 +160,27 @@ vector<vector<vectorSet> > projection(const vectorSet &B, float gamma, const vec
   return B_p;
 }
 
-vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &sMat,
-                          const sVector &sVec, int size_Z){
+vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &T_a_z,
+                          const sVector &r_a, int size_Z){
   vectorSet vSet_a_z;
   sVector temp_sVec;
   sNode temp_sNode;
-  for(auto itr_vSet=B.vSet.begin();itr_vSet!=B.vSet.end();++itr_vSet){    
-    temp_sVec = projection_vector(itr_vSet->sVec,gamma,sMat,sVec,size_Z);
+  for(auto itr_vSet=B.vSet.begin();itr_vSet!=B.vSet.end();++itr_vSet){
+    temp_sVec = projection_vector(itr_vSet->sVec,gamma,T_a_z,r_a,size_Z);
     /* check if the projected vector exists in the current vectorSet, if so, 
        just throw it away */
-    if(check_existence(vSet_a_z,temp_sVec)) continue;
+    if(check_existence(vSet_a_z,temp_sVec,0.000001)) continue;
     temp_sNode.sVec = temp_sVec;
     vSet_a_z.vSet.push_back(temp_sNode);
   }
+  //cout<<"size before purge:"<<vSet_a_z.vSet.size()<<endl;
+  //purge(vSet_a_z);
+  //cout<<"size after purge:"<<vSet_a_z.vSet.size()<<endl<<endl;
   return vSet_a_z;
 }
 
-sVector projection_vector(const sVector &b, float gamma, const sMatrix &sMat,
-                                const sVector &sVec, int size_Z){
+sVector projection_vector(const sVector &b, float gamma, const sMatrix &T_a_z,
+                                const sVector &r_a, int size_Z){
   sVector temp_sVec;
   float tempSum;
   int size_S;
@@ -192,32 +189,38 @@ sVector projection_vector(const sVector &b, float gamma, const sMatrix &sMat,
   for(int i=0;i<size_S;i++){
     tempSum = 0;
     for(int j=0;j<size_S;j++){
-      tempSum += sMat[i][j]*b[j];
+      tempSum += T_a_z[i][j]*b[j];
     }
-    temp_sVec[i] = sVec[i]/size_Z + gamma*tempSum;
+    temp_sVec[i] = r_a[i]/size_Z + gamma*tempSum;
   }  
   return temp_sVec;
 }
 
-vector<vectorSet> cross_sum(vector<vector<vectorSet> > &B_p){
+vector<vectorSet> cross_sum(const vector<vector<vectorSet> > &B_p){
   vector<vectorSet> B_c;  
   B_c.resize(B_p.size());  
   for(int i=0;i<B_p.size();i++){
-    B_c[i] = cross_sum_list(B_p[i]);    
+    B_c[i] = cross_sum_list(B_p[i]);
     /* set index */
     B_c[i].set_index(i,-1);
-  }  
+  }
   return B_c;
 }
 
-vectorSet cross_sum_list(vector<vectorSet> &B_p_a){
+vectorSet cross_sum_list(const vector<vectorSet> &B_p_a){
   vectorSet temp_vSet;
   if(B_p_a.size()==0) return temp_vSet;
   else if(B_p_a.size()==1) return B_p_a[0];
   temp_vSet = cross(B_p_a[0],B_p_a[1]);
+  //cout<<B_p_a[0].vSet.size()<<" "<<B_p_a[1].vSet.size()<<" "<<temp_vSet.vSet.size()<<endl;
   for(int i=0;i<B_p_a.size()-2;i++){
+    //cout<<temp_vSet.vSet.size()<<" "<<B_p_a[i+2].vSet.size()<<" ";
     temp_vSet = cross(temp_vSet,B_p_a[i+2]);
+    //cout<<temp_vSet.vSet.size()<<endl;
+    //cout<<"finish!"<<endl;
   }
+  //purge(temp_vSet);
+  //cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
   return temp_vSet;
 }
 
@@ -225,7 +228,7 @@ vectorSet cross(const vectorSet &A, const vectorSet &B){
   sVector temp_sVec;
   sNode temp_sNode;  
   vectorSet temp_vSet;
-  int size_S;  
+  int size_S;
   if(A.vSet.empty() && !B.vSet.empty()) return B;  
   else if(!A.vSet.empty() && B.vSet.empty()) return A;
   else if(A.vSet.empty() && B.vSet.empty()) return temp_vSet;
@@ -238,7 +241,7 @@ vectorSet cross(const vectorSet &A, const vectorSet &B){
       }
       /* check if the cross summed vector exists in the current vectorSet, if so, 
          just throw it away */
-      if(check_existence(temp_vSet,temp_sVec)) continue;
+      //if(check_existence(temp_vSet,temp_sVec,0.000001)) continue;
       temp_sNode.sVec = temp_sVec;
       temp_vSet.vSet.push_back(temp_sNode);
     }
@@ -246,13 +249,13 @@ vectorSet cross(const vectorSet &A, const vectorSet &B){
   return temp_vSet;
 }
 
-vectorSet vSet_union(vector<vectorSet> &B_c){
+vectorSet vSet_union(const vector<vectorSet> &B_c){
   vectorSet temp_vSet;
   for(int i=0;i<B_c.size();i++){
     for(auto itr=B_c[i].vSet.begin();itr!=B_c[i].vSet.end();++itr){
       /* check if the vector to be unioned exists in the current vectorSet, if so,
          just throw it away */
-      if(check_existence(temp_vSet,itr->sVec)) continue;
+      //if(check_existence(temp_vSet,itr->sVec,0.000001)) continue;
       temp_vSet.vSet.push_back(*itr);
     }
   }  
