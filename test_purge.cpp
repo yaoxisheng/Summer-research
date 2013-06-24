@@ -7,7 +7,7 @@
 using namespace std;
 
 int main(int argc, char* argv[]){
-  pomdp p("foo.pomdp");
+  pomdp p("pomdp1c");
   vectorSet F;
   list<sVector> tempList;
   vector<sVector> tempVec; 

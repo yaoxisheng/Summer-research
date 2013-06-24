@@ -7,6 +7,8 @@
 
 using namespace std;
 
+float lp_epsilon=1e-12;
+
 bool test_dominance(const sVector &b, const vectorSet &F){  
   lprec *lp;  
   int Ncol,result,size_S,i;
@@ -70,7 +72,7 @@ bool test_dominance(const sVector &b, const vectorSet &F){
   }  
   /* calculate the solution and print the output */
   set_add_rowmode(lp,FALSE);  
-  set_maxim(lp);  
+  set_maxim(lp);
   set_verbose(lp,IMPORTANT); 
   result = solve(lp);
   if(result==OPTIMAL){    
@@ -90,79 +92,63 @@ bool test_dominance(const sVector &b, const vectorSet &F){
   }
 }
 
-vector<bool> test_dominance_excluded(lprec *lp_copy, list<sNode>::iterator itr, int row_no, int range){
+vector<bool> test_dominance_excluded(lprec *lp_copy, int row_no, int range){
   lprec *lp;
   vector<bool> dominant(range,true);
-  int Ncol,result,size_S,i,*temp_con_type;
-  REAL *row,*temp_row,*temp_rh_value;
-  size_S = itr->sVec.size();
-  Ncol = get_Ncolumns(lp_copy);  
-  /* copy the model from lp_copy and allocate space */
-  lp = copy_lp(lp_copy);  
-  row = new REAL[Ncol+1];
-  temp_row = new REAL[Ncol+1];
-  temp_rh_value = new REAL;
-  temp_con_type = new int;
-  if(!row || !temp_row || !temp_rh_value || !temp_con_type){
-    cerr<<"couldn't allocate space!"<<endl;
-    return dominant;
-  }
-  /* store the information the (row_no)th row */
-  if(!getRow(lp,row_no,temp_row,temp_con_type,temp_rh_value)){
-    cerr<<"couldn't get the row!"<<endl;
-    return dominant;
-  }
-  /* test dominance on *itr, construct the row: v = b^T*x and
-     set it to the (row_no)th row */
-  set_add_rowmode(lp,FALSE);
-  for(i=1;i<=size_S;i++){
-    row[i] = itr->sVec[i-1];
-  }  
-  row[size_S+1] = -1;
-  row[size_S+2] = 0;
-  if(!setRow(lp,row_no,row,EQ,0)){
-    cerr<<"couldn't set the row!"<<endl;
-    return dominant;
-  }  
-  set_maxim(lp);  
-  set_verbose(lp,IMPORTANT);
-  result = solve(lp);
-  if(result==INFEASIBLE){
-    dominant[0] = false;
-  }
-  /* test dominance from *(itr + 1) to *(itr + range - 1) */
-  for(int j=0;j<range-1;j++){
-    /* restore the (row_no + j)th row */
-    if(!setRow(lp,row_no+j,temp_row,*temp_con_type,*temp_rh_value)){
-      cerr<<"couldn't set the row!"<<endl;
-      return dominant;
+  int Ncol,Nrow,result;
+  Ncol = get_Ncolumns(lp_copy);
+  Nrow = get_Nrows(lp_copy);
+  REAL pv[1+Nrow+Ncol];
+  /* copy the model from lp_copy */
+  lp = copy_lp(lp_copy);
+  /* test dominance on vector v from range (row_no) to (row_no + range -1) */
+  for(int i=0;i<range;i++){
+    /* change the (row_no + i)th row to v = b^T*x */
+    if(!set_mat(lp,row_no+i,Ncol,0.0)){
+      cerr<<"couldn't set the matrix!"<<endl;
+      continue;
     }
-    /* store the information the (row_no + j + 1)th row */
-    if(!getRow(lp,row_no+j+1,temp_row,temp_con_type,temp_rh_value)){
-      cerr<<"couldn't get the row!"<<endl;
-      return dominant;
+    if(!set_constr_type(lp,row_no+i,EQ)) {
+      cerr<<"couldn't set the constraint type!"<<endl;
+      continue;
     }
-    /* construct the row: v = b^T*x and set it to the (row_no + j + 1)th row */
-    ++itr;
-    for(i=1;i<=size_S;i++){
-      row[i] = itr->sVec[i-1];
-    }
-    row[size_S+1] = -1;
-    row[size_S+2] = 0;
-    if(!setRow(lp,row_no,row,EQ,0)){
-      cerr<<"couldn't set the row!"<<endl;
-      return dominant;
-    }    
+    /* solve the model */
+    print_lp(lp);
     result = solve(lp);
-    if(result==INFEASIBLE){
-      dominant[j+1] = false;
+    /* modify dominant vector according to the result */
+    if(result==OPTIMAL){
+      if(!get_primal_solution(lp,pv)){
+        cerr<<"couldn't get the solution!"<<endl;
+        continue;
+      }
+      if(pv[0]<lp_epsilon) {
+        cout<<"optimal but small objective"<<endl;
+        dominant[i] = false;
+      }
+      else{
+        cout<<"optimal"<<endl;
+        cout<<"objective = "<<pv[0]<<endl;
+      }
     }
-  }
-  /* free memroy */
-  free_mem(lp,row);
-  delete[] temp_row;
-  delete temp_rh_value;
-  delete temp_con_type;
+    else if(result==INFEASIBLE){
+      cout<<"infeasible"<<endl;
+      dominant[i] = false;
+    }
+    else{
+      cerr<<"other than optimal/Infeasible"<<endl;
+      continue;
+    }
+    /* restore the (row_no + j)th row */
+    if(!set_mat(lp,row_no+i,Ncol,1.0)){
+      cerr<<"couldn't set the matrix!"<<endl;
+      continue;
+    }
+    if(!set_constr_type(lp,row_no+i,LE)){
+      cerr<<"couldn't set the constraint type!"<<endl;
+      continue;
+    }
+  }  
+  delete_lp(lp);
   return dominant;
 }
 
@@ -209,7 +195,7 @@ void purge(vectorSet &F){
   row[size_S+1] = 0;
   row[size_S+2] = 0;
   if(!add_constraint(lp,row,EQ,1)){  
-    cerr<<"couldn't set the row"<<endl;
+    cerr<<"couldn't set the row!"<<endl;
     return;
   }  
   /* construct |F| rows: α_i^T*x - v + ε <= 0 */    
@@ -220,26 +206,31 @@ void purge(vectorSet &F){
     row[size_S+1] = -1;
     row[size_S+2] = 1;
     if(!add_constraint(lp,row,LE,0)){    
-      cerr<<"couldn't set the row "<<endl;
+      cerr<<"couldn't set the row!"<<endl;
       return;
     }
   }
-  /* test dominance for each vector in F, every time test from
-     *itr to *(itr + range - 1) */
+  set_add_rowmode(lp,FALSE);
+  /* set the bounds for v: -Inf to +Inf */
+  if(!set_bounds(lp,Ncol-1,-get_infinite(lp),get_infinite(lp))){
+    cerr<<"couldn't set the bounds!"<<endl;
+    return;
+  }
+  /* set objective function to maximize and only print important messages */
+  set_maxim(lp);  
+  set_verbose(lp,IMPORTANT);
+  /* test dominance for each vector v in F, every time test from
+     v to (v + range - 1) */
   row_no = 2;
-  range = 2;
-  final_range = F.vSet.size()%range;
-  itr = F.vSet.begin();
+  range = 1;
+  final_range = F.vSet.size()%range; 
   for(int j=0;j<F.vSet.size()/range;j++){
-    tempVec = test_dominance_excluded(lp,itr,row_no,range);
+    tempVec = test_dominance_excluded(lp,row_no,range);
     dominant.insert(dominant.end(),tempVec.begin(),tempVec.end());    
-    row_no += range;
-    for(int k=0;k<range;k++){
-      ++itr;
-    } 
+    row_no += range;    
   }
   if(final_range!=0){
-    tempVec = test_dominance_excluded(lp,itr,row_no,final_range);
+    tempVec = test_dominance_excluded(lp,row_no,final_range);
     dominant.insert(dominant.end(),tempVec.begin(),tempVec.end());
   }
   /*
