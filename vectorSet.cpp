@@ -33,6 +33,7 @@ void vectorSet::sort_unique(){
 
 void print_vSet(const vectorSet &v){
   for(auto itr=v.vSet.begin();itr!=v.vSet.end();++itr){
+    cout<<itr->index_a<<"  "<<itr->index_z<<endl;
     for(int i=0;i<itr->sVec.size();i++){
       cout<<itr->sVec[i]<<" ";
     }
