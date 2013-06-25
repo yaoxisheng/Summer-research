@@ -16,5 +16,7 @@ struct sNode{
 };
 
 bool isEqual(const sVector &a, const sVector &b, float epsilon);
+bool comp(const sNode &a, const sNode &b);
+bool pred(const sNode &a, const sNode &b);
 
 #endif

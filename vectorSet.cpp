@@ -1,5 +1,6 @@
 #include<list>
 #include<vector>
+#include<algorithm>
 #include<iostream>
 #include"vectorSet.h"
 
@@ -23,24 +24,12 @@ void vectorSet::set_index(int index_a, int index_z){
   }
 }
 
-/*
-void vectorSet::vSet_unique(){
-  if(vSet.size()<=1) return;
-  for(auto itr=vSet.begin();itr!=vSet.end();++itr){
-    auto itr2=itr;
-    ++itr2;
-    for(;itr2!=vSet.end();){
-      if(isEqual(itr->sVec,itr2->sVec,0.000001)){              
-        itr2 = vSet.erase(itr2);
-      }
-      else{
-        ++itr2;        
-      }
-    }
-    if(itr==vSet.end()) break;    
-  }
+void vectorSet::sort_unique(){
+  list<sNode>::iterator itr;
+  vSet.sort(comp);
+  itr = unique(vSet.begin(),vSet.end(),pred);
+  vSet.resize(distance(vSet.begin(),itr));
 }
-*/
 
 void print_vSet(const vectorSet &v){
   for(auto itr=v.vSet.begin();itr!=v.vSet.end();++itr){

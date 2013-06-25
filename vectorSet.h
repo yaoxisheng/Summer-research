@@ -13,7 +13,7 @@ class vectorSet{
     vectorSet(){};   
     void set_vSet(list<sVector> sVec_list);
     void set_index(int index_a, int index_z);
-    //void vSet_unique();
+    void sort_unique();
     ~vectorSet(){};
 };
 

@@ -176,16 +176,12 @@ vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &T_a_z,
   sVector temp_sVec;
   sNode temp_sNode;
   for(auto itr_vSet=B.vSet.begin();itr_vSet!=B.vSet.end();++itr_vSet){
-    temp_sVec = projection_vector(itr_vSet->sVec,gamma,T_a_z,r_a,size_Z);
-    /* check if the projected vector exists in the current vectorSet, if so, 
-       just throw it away */
-    if(check_existence(vSet_a_z,temp_sVec,existence_epsilon)) {
-      //cout << "Found duplicate node" << endl;
-      continue;
-    }
+    temp_sVec = projection_vector(itr_vSet->sVec,gamma,T_a_z,r_a,size_Z);    
     temp_sNode.sVec = temp_sVec;
     vSet_a_z.vSet.push_back(temp_sNode);
   }
+  /* sort and unique the vSet before purging */
+  vSet_a_z.sort_unique();
   //cout<<"size before purge:"<<vSet_a_z.vSet.size()<<endl;
   purge(vSet_a_z);
   //cout<<"size after purge:"<<vSet_a_z.vSet.size()<<endl;
@@ -236,6 +232,8 @@ vectorSet cross_sum_list(const vector<vectorSet> &B_p_a){
   for(int i=0;i<B_p_a.size()-2;i++){
     temp_vSet = cross(temp_vSet,B_p_a[i+2]);    
   }
+  /* sort and unique the vSet before purging */
+  temp_vSet.sort_unique();
   //cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;
   purge(temp_vSet);
   //cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
@@ -256,36 +254,25 @@ vectorSet cross(const vectorSet &A, const vectorSet &B){
     for(auto itr2=B.vSet.begin();itr2!=B.vSet.end();++itr2){
       for(int i=0;i<size_S;i++){        
         temp_sVec[i] = itr->sVec[i] + itr2->sVec[i];
-      }
-      /* check if the cross summed vector exists in the current vectorSet, if so, 
-         just throw it away */
-      if(check_existence(temp_vSet,temp_sVec,existence_epsilon)) {
-        //cout << "Found duplicate" << endl;
-        continue;
-      }
+      }      
       temp_sNode.sVec = temp_sVec;
       temp_vSet.vSet.push_back(temp_sNode);
     }
-  }  
+  } 
   return temp_vSet;
 }
 
 vectorSet vSet_union(const vector<vectorSet> &B_c){
   vectorSet temp_vSet;
   for(int i=0;i<B_c.size();i++){
-    for(auto itr=B_c[i].vSet.begin();itr!=B_c[i].vSet.end();++itr){
-      /* check if the vector to be unioned exists in the current vectorSet, if so,
-         just throw it away */
-      if(check_existence(temp_vSet,itr->sVec,existence_epsilon)) {
-        //cout << "Found duplicate" << endl;
-        continue;
-      }
+    for(auto itr=B_c[i].vSet.begin();itr!=B_c[i].vSet.end();++itr){      
       temp_vSet.vSet.push_back(*itr);
     }    
-    //cout << "Unioning " <<i << endl;
-    //cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;
-    purge(temp_vSet);
-    //cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
-  }  
+  }
+  /* sort and unique the vSet before purging */
+  temp_vSet.sort_unique();  
+  //cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;    
+  purge(temp_vSet);
+  //cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
   return temp_vSet;
 }
