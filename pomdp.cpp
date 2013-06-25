@@ -12,6 +12,8 @@ using namespace std;
 
 errorPomdp e;
 
+float existence_epsilon=1e-6;
+
 pomdp::pomdp(string file){
   read_file(file);
 }
@@ -135,12 +137,15 @@ vectorSet update_vectorSet(const vectorSet &B, float gamma, const vector<vector<
   vector<vector<vectorSet> > B_p;
   vector<vectorSet> B_c;
   vectorSet B_u;
+  cout<< endl <<"start projection!"<<endl<<endl;
   B_p = projection(B,gamma,T_Matrix,r_Matrix,valid_Matrix); 
-  //cout<<"finish projection!"<<endl;
+  cout<< endl << "finish projection!" << endl << endl;
+  cout<<"start cross sum!"<<endl<< endl;  
   B_c = cross_sum(B_p);
-  //cout<<"finish cross sum!"<<endl;  
+  cout<<endl<<"finish cross sum!"<<endl << endl;  
+  cout<<"start union!"<<endl<<endl;
   B_u = vSet_union(B_c);
-  //cout<<"finish union!"<<endl;
+  cout<<endl<<"finish union!"<<endl << endl;
   return B_u;
 }
 
@@ -151,10 +156,15 @@ vector<vector<vectorSet> > projection(const vectorSet &B, float gamma, const vec
   for(int i=0;i<T_Matrix.size();i++){
     B_p[i].resize(T_Matrix[i].size());
     for(int j=0;j<T_Matrix[i].size();j++){
-      if(!valid_Matrix[i][j]) continue;
+      //cout<<"Projecting list at (a,z)= (" << i<< "," << j << ")" <<endl;
+      if(!valid_Matrix[i][j]) {
+        //cout<<"Invalid (a,z)" << endl;
+        continue;
+      }
       B_p[i][j] = projection_list(B,gamma,T_Matrix[i][j],r_Matrix[i],T_Matrix[i].size());      
       /* set index */
       B_p[i][j].set_index(i,j);
+      //cout<<"Projected list at (a,z)= (" << i<< "," << j << ") is "<< B_p[i][j].vSet.size() <<endl<<endl;
     }
   }
   return B_p;
@@ -169,13 +179,16 @@ vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &T_a_z,
     temp_sVec = projection_vector(itr_vSet->sVec,gamma,T_a_z,r_a,size_Z);
     /* check if the projected vector exists in the current vectorSet, if so, 
        just throw it away */
-    if(check_existence(vSet_a_z,temp_sVec,0.000001)) continue;
+    if(check_existence(vSet_a_z,temp_sVec,existence_epsilon)) {
+      //cout << "Found duplicate node" << endl;
+      continue;
+    }
     temp_sNode.sVec = temp_sVec;
     vSet_a_z.vSet.push_back(temp_sNode);
   }
   //cout<<"size before purge:"<<vSet_a_z.vSet.size()<<endl;
-  //purge(vSet_a_z);
-  //cout<<"size after purge:"<<vSet_a_z.vSet.size()<<endl<<endl;
+  purge(vSet_a_z);
+  //cout<<"size after purge:"<<vSet_a_z.vSet.size()<<endl;
   return vSet_a_z;
 }
 
@@ -200,26 +213,31 @@ vector<vectorSet> cross_sum(const vector<vector<vectorSet> > &B_p){
   vector<vectorSet> B_c;  
   B_c.resize(B_p.size());  
   for(int i=0;i<B_p.size();i++){
+    //cout<<"Crosssuming lists at a=" << i<<endl;
     B_c[i] = cross_sum_list(B_p[i]);
     /* set index */
     B_c[i].set_index(i,-1);
+    //cout<<"Crosssuming list size at a=" << i << " is "<< B_c[i].vSet.size() <<endl;
   }
   return B_c;
 }
 
 vectorSet cross_sum_list(const vector<vectorSet> &B_p_a){
   vectorSet temp_vSet;
-  if(B_p_a.size()==0) return temp_vSet;
-  else if(B_p_a.size()==1) return B_p_a[0];
-  temp_vSet = cross(B_p_a[0],B_p_a[1]);
-  //cout<<B_p_a[0].vSet.size()<<" "<<B_p_a[1].vSet.size()<<" "<<temp_vSet.vSet.size()<<endl;
-  for(int i=0;i<B_p_a.size()-2;i++){
-    //cout<<temp_vSet.vSet.size()<<" "<<B_p_a[i+2].vSet.size()<<" ";
-    temp_vSet = cross(temp_vSet,B_p_a[i+2]);
-    //cout<<temp_vSet.vSet.size()<<endl;
-    //cout<<"finish!"<<endl;
+  if(B_p_a.size()==0) {
+    cout << "List empty" << endl;
+    return temp_vSet;
   }
-  //purge(temp_vSet);
+  else if(B_p_a.size()==1) {
+    cout << "List size is one" << endl;
+    return B_p_a[0];
+  }
+  temp_vSet = cross(B_p_a[0],B_p_a[1]);  
+  for(int i=0;i<B_p_a.size()-2;i++){
+    temp_vSet = cross(temp_vSet,B_p_a[i+2]);    
+  }
+  //cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;
+  purge(temp_vSet);
   //cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
   return temp_vSet;
 }
@@ -241,7 +259,10 @@ vectorSet cross(const vectorSet &A, const vectorSet &B){
       }
       /* check if the cross summed vector exists in the current vectorSet, if so, 
          just throw it away */
-      //if(check_existence(temp_vSet,temp_sVec,0.000001)) continue;
+      if(check_existence(temp_vSet,temp_sVec,existence_epsilon)) {
+        //cout << "Found duplicate" << endl;
+        continue;
+      }
       temp_sNode.sVec = temp_sVec;
       temp_vSet.vSet.push_back(temp_sNode);
     }
@@ -255,9 +276,16 @@ vectorSet vSet_union(const vector<vectorSet> &B_c){
     for(auto itr=B_c[i].vSet.begin();itr!=B_c[i].vSet.end();++itr){
       /* check if the vector to be unioned exists in the current vectorSet, if so,
          just throw it away */
-      //if(check_existence(temp_vSet,itr->sVec,0.000001)) continue;
+      if(check_existence(temp_vSet,itr->sVec,existence_epsilon)) {
+        //cout << "Found duplicate" << endl;
+        continue;
+      }
       temp_vSet.vSet.push_back(*itr);
-    }
+    }    
+    //cout << "Unioning " <<i << endl;
+    //cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;
+    purge(temp_vSet);
+    //cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
   }  
   return temp_vSet;
 }

@@ -7,7 +7,7 @@
 
 using namespace std;
 
-float lp_epsilon=1e-12;
+float lp_epsilon=1e-6;
 
 bool test_dominance(const sVector &b, const vectorSet &F){  
   lprec *lp;  
@@ -101,6 +101,10 @@ vector<bool> test_dominance_excluded(lprec *lp_copy, int row_no, int range){
   REAL pv[1+Nrow+Ncol];
   /* copy the model from lp_copy */
   lp = copy_lp(lp_copy);
+  if(lp==NULL){
+    cout<<"couldn't copy the LP!"<<endl;
+    return dominant;
+  }
   /* test dominance on vector v from range (row_no) to (row_no + range -1) */
   for(int i=0;i<range;i++){
     /* change the (row_no + i)th row to v = b^T*x */
@@ -113,7 +117,7 @@ vector<bool> test_dominance_excluded(lprec *lp_copy, int row_no, int range){
       continue;
     }
     /* solve the model */
-    print_lp(lp);
+    //print_lp(lp);
     result = solve(lp);
     /* modify dominant vector according to the result */
     if(result==OPTIMAL){
@@ -122,20 +126,20 @@ vector<bool> test_dominance_excluded(lprec *lp_copy, int row_no, int range){
         continue;
       }
       if(pv[0]<lp_epsilon) {
-        cout<<"optimal but small objective"<<endl;
+        //cout<<"optimal but small objective"<<endl;
         dominant[i] = false;
       }
       else{
-        cout<<"optimal"<<endl;
-        cout<<"objective = "<<pv[0]<<endl;
+        //cout<<"optimal"<<endl;
+        //cout<<"objective = "<<pv[0]<<endl;
       }
     }
     else if(result==INFEASIBLE){
-      cout<<"infeasible"<<endl;
+      //cout<<"infeasible"<<endl;
       dominant[i] = false;
     }
     else{
-      cerr<<"other than optimal/Infeasible"<<endl;
+      //cerr<<"other than optimal/Infeasible"<<endl;
       continue;
     }
     /* restore the (row_no + j)th row */
@@ -160,7 +164,7 @@ void purge(vectorSet &F){
   REAL *row;  
   /* check if F is empty */
   if(F.vSet.size()<=1){
-    cerr<<"couldn't purge F!"<<endl;
+    cerr<<"F has only one element, so it is not purged"<<endl;
     return;
   }
   size_S = F.vSet.begin()->sVec.size();
@@ -176,8 +180,9 @@ void purge(vectorSet &F){
     cerr<<"couldn't allocate space!"<<endl;
     return;
   }
+  resize_lp(lp,1+F.vSet.size(),get_Ncolumns(lp));
   /* set the objective function: ε */
-  set_add_rowmode(lp,FALSE);  
+  set_add_rowmode(lp,FALSE);
   for(i=1;i<=size_S;i++){    
     row[i] = 0;
   }
@@ -216,9 +221,18 @@ void purge(vectorSet &F){
     cerr<<"couldn't set the bounds!"<<endl;
     return;
   }
-  /* set objective function to maximize and only print important messages */
+  /* Although not needed we also set upper bounds for x_i <=1 */
+  for(i=1;i<=size_S;i++) {
+    if(!set_bounds(lp,i,0.0,1.0)) {
+      cerr<<"couldn't set the bound!"<<endl;
+      return;
+    }
+  }
+  /* set objective function to maximize and other solver settings */
   set_maxim(lp);  
   set_verbose(lp,IMPORTANT);
+  set_scaling(lp, SCALE_NONE);
+  //set_epslevel(lp, EPS_MEDIUM); // default is EPS_TIGHT
   /* test dominance for each vector v in F, every time test from
      v to (v + range - 1) */
   row_no = 2;
@@ -259,7 +273,7 @@ vectorSet purge2(vectorSet &F){
   vector<bool> dominant;  
   /* check if F is empty */
   if(F.vSet.size()<=1){
-    cerr<<"couldn't purge F!"<<endl;
+    cerr<<"F has only one element, so it is not purged"<<endl;
     return F;
   }
   size_S = F.vSet.begin()->sVec.size();
