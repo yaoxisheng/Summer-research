@@ -156,12 +156,8 @@ vector<vector<vectorSet> > projection(const vectorSet &B, float gamma, const vec
   for(int i=0;i<T_Matrix.size();i++){
     B_p[i].resize(T_Matrix[i].size());
     for(int j=0;j<T_Matrix[i].size();j++){
-      //cout<<"Projecting list at (a,z)= (" << i<< "," << j << ")" <<endl;
-      if(!valid_Matrix[i][j]) {
-        //cout<<"Invalid (a,z)" << endl;
-        continue;
-      }
-      B_p[i][j] = projection_list(B,gamma,T_Matrix[i][j],r_Matrix[i],T_Matrix[i].size());      
+      cout<<"Projecting list at (a,z)= (" << i<< "," << j << ")" <<endl;
+      B_p[i][j] = projection_list(B,gamma,T_Matrix[i][j],r_Matrix[i],valid_Matrix[i][j],T_Matrix[0].size());      
       /* set index */
       B_p[i][j].set_index(i,j);
       //cout<<"Projected list at (a,z)= (" << i<< "," << j << ") is "<< B_p[i][j].vSet.size() <<endl<<endl;
@@ -171,10 +167,21 @@ vector<vector<vectorSet> > projection(const vectorSet &B, float gamma, const vec
 }
 
 vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &T_a_z,
-                          const sVector &r_a, int size_Z){
+                          const sVector &r_a, bool valid, int size_Z){
   vectorSet vSet_a_z;
   sVector temp_sVec;
   sNode temp_sNode;
+  int size_S=T_a_z.size();
+  if(!valid){
+    cout<<"Invalid (a,z)" << endl;
+    temp_sVec.resize(size_S);
+    for(int i=0;i<size_S;i++){
+      temp_sVec[i] = r_a[i]/size_Z;
+    }
+    temp_sNode.sVec = temp_sVec;
+    vSet_a_z.vSet.push_back(temp_sNode);
+    return vSet_a_z;
+  }
   for(auto itr_vSet=B.vSet.begin();itr_vSet!=B.vSet.end();++itr_vSet){
     temp_sVec = projection_vector(itr_vSet->sVec,gamma,T_a_z,r_a,size_Z);    
     temp_sNode.sVec = temp_sVec;
@@ -182,9 +189,10 @@ vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &T_a_z,
   }
   /* sort and unique the vSet before purging */
   vSet_a_z.sort_unique();
-  //cout<<"size before purge:"<<vSet_a_z.vSet.size()<<endl;
-  purge(vSet_a_z);
-  //cout<<"size after purge:"<<vSet_a_z.vSet.size()<<endl;
+  cout<<"size before purge:"<<vSet_a_z.vSet.size()<<endl;
+  //purge(vSet_a_z);
+  vSet_a_z = purge2(vSet_a_z);
+  cout<<"size after purge:"<<vSet_a_z.vSet.size()<<endl;
   return vSet_a_z;
 }
 
@@ -221,11 +229,11 @@ vector<vectorSet> cross_sum(const vector<vector<vectorSet> > &B_p){
 vectorSet cross_sum_list(const vector<vectorSet> &B_p_a){
   vectorSet temp_vSet;
   if(B_p_a.size()==0) {
-    cout << "List empty" << endl;
+    //cout << "List empty" << endl;
     return temp_vSet;
   }
   else if(B_p_a.size()==1) {
-    cout << "List size is one" << endl;
+    //cout << "List size is one" << endl;
     return B_p_a[0];
   }
   temp_vSet = cross(B_p_a[0],B_p_a[1]);  
@@ -235,7 +243,8 @@ vectorSet cross_sum_list(const vector<vectorSet> &B_p_a){
   /* sort and unique the vSet before purging */
   temp_vSet.sort_unique();
   //cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;
-  purge(temp_vSet);
+  //purge(temp_vSet);
+  temp_vSet = purge2(temp_vSet);
   //cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
   return temp_vSet;
 }
@@ -272,7 +281,8 @@ vectorSet vSet_union(const vector<vectorSet> &B_c){
   /* sort and unique the vSet before purging */
   temp_vSet.sort_unique();  
   //cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;    
-  purge(temp_vSet);
+  //purge(temp_vSet);
+  temp_vSet = purge2(temp_vSet);
   //cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
   return temp_vSet;
 }

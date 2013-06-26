@@ -15,8 +15,10 @@ struct sNode{
   int index_z;
 };
 
+float dot(const sVector &a, const sVector &b);
 bool isEqual(const sVector &a, const sVector &b, float epsilon);
 bool comp(const sNode &a, const sNode &b);
+bool comp2(const sVector &a, const sVector &b);
 bool pred(const sNode &a, const sNode &b);
 
 #endif
