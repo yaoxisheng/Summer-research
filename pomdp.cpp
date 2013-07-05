@@ -12,7 +12,8 @@ using namespace std;
 
 errorPomdp e;
 
-float existence_epsilon=1e-6;
+float lp_epsilon=1e-6;
+int cores=4;
 
 pomdp::pomdp(string file){
   read_file(file);
@@ -190,8 +191,7 @@ vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &T_a_z,
   /* sort and unique the vSet before purging */
   vSet_a_z.sort_unique();
   cout<<"size before purge:"<<vSet_a_z.vSet.size()<<endl;
-  //purge(vSet_a_z);
-  vSet_a_z = purge2(vSet_a_z);
+  vSet_a_z = purge(vSet_a_z,cores,lp_epsilon);
   cout<<"size after purge:"<<vSet_a_z.vSet.size()<<endl;
   return vSet_a_z;
 }
@@ -243,8 +243,7 @@ vectorSet cross_sum_list(const vector<vectorSet> &B_p_a){
   /* sort and unique the vSet before purging */
   temp_vSet.sort_unique();
   //cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;
-  //purge(temp_vSet);
-  temp_vSet = purge2(temp_vSet);
+  temp_vSet = purge(temp_vSet,cores,lp_epsilon);  
   //cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
   return temp_vSet;
 }
@@ -279,10 +278,9 @@ vectorSet vSet_union(const vector<vectorSet> &B_c){
     }    
   }
   /* sort and unique the vSet before purging */
-  temp_vSet.sort_unique();  
+  temp_vSet.sort_unique();
   //cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;    
-  //purge(temp_vSet);
-  temp_vSet = purge2(temp_vSet);
+  temp_vSet = purge(temp_vSet,cores,lp_epsilon);
   //cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
   return temp_vSet;
 }

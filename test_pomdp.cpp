@@ -33,8 +33,8 @@ int main(int argc, char* argv[]){
   cout<<endl;
   cout << "Purge before start of iterations" << endl;
   //cout<<"size before purge:"<<F.vSet.size()<<endl;
-  //purge(F);
-  F = purge2(F);
+  purge(F);
+  //F = purge2(F);
   //cout<<"size after purge:"<<F.vSet.size()<<endl;
 
   cout << endl << "Epoch = " << 1 << endl << endl;

@@ -1,19 +1,37 @@
 #include<iostream>
 #include<string>
-#include<cstdio>
+#include<cmath>
 #include<sstream>
+#include<pthread.h>
 #include"purge.h"
 #include"lp_lib.h"
 
 using namespace std;
 
-float lp_epsilon=1e-6;
+#define PURGE1 1
+#define PURGE2 2
 
-void purge(vectorSet &F){
+vector<vector<bool> > dominant_matrix;
+pthread_mutex_t dominant_matrix_lock;
+pthread_barrier_t barrier;
+int purge_type = PURGE1;
+
+vectorSet purge(vectorSet &F, int cores, float epsilon){
+  if(purge_type==PURGE1){
+    purge1(F,cores,epsilon);
+    return F;    
+  }
+  else{
+    vectorSet temp_vSet;
+    temp_vSet = purge2(F,epsilon);
+    return temp_vSet;
+  }
+} 
+void purge1(vectorSet &F, int cores, float epsilon){
   lprec *lp;
-  vector<bool> dominant,tempVec;
+  vector<bool> dominant_vector;
   list<sNode>::iterator itr;
-  int Ncol,Nrow,result,size_S,row_no,i,range,final_range;
+  int Ncol,Nrow,Nthread,result,size_S,row_no,range,final_range,i;
   REAL *row;
   size_S = F.vSet.begin()->sVec.size();
   Ncol = size_S + 2;
@@ -86,26 +104,68 @@ void purge(vectorSet &F){
   set_verbose(lp,IMPORTANT);
   set_scaling(lp, SCALE_NONE);
   set_add_rowmode(lp,FALSE);
-  //set_epslevel(lp, EPS_MEDIUM); // default is EPS_TIGHT
-  /* test dominance for each vector v in F, every time test from
+  //set_epslevel(lp, EPS_MEDIUM);  // default is EPS_TIGHT
+  /* Sometimes the solver runs in an infinite loop. This may be the 
+     result of not scalling. To overcome that we put a timeout. */
+  set_timeout(lp,10);
+  /* test dominance for each vector v in F, each core tests from
      v to (v + range - 1) */
+  /* initialize parameters */
   row_no = 2;
-  range = 1;
-  final_range = F.vSet.size()%range; 
-  for(int j=0;j<F.vSet.size()/range;j++){
-    tempVec = test_dominance_excluded(lp,row_no,range);
-    //cout<<"finish the "<<j<<"th test!"<<endl;
-    dominant.insert(dominant.end(),tempVec.begin(),tempVec.end());    
-    row_no += range;    
+  if(cores>=F.vSet.size()){
+    range = 1;
+    final_range = 0;
+    Nthread = F.vSet.size();
   }
-  if(final_range!=0){
-    tempVec = test_dominance_excluded(lp,row_no,final_range);
-    dominant.insert(dominant.end(),tempVec.begin(),tempVec.end());
-  } 
+  else{
+    range = F.vSet.size()/cores;
+    final_range = F.vSet.size() - range*(cores - 1);
+    Nthread = cores;
+  }
+  pthread_t thread_id[Nthread];
+  vector<parameter> parameter_vector(Nthread,{lp,0,range,epsilon,0});
+  dominant_matrix.resize(Nthread);  
+  
+  pthread_attr_t attr;  // use &attr as a parameter to pthread_create
+  pthread_attr_init(&attr);
+  //pthread_attr_setstacksize(&attr,1024*1024); //could be used to set stack size
+  pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
+   
+  pthread_barrier_init(&barrier,NULL,Nthread+1);
+  pthread_mutex_init(&dominant_matrix_lock,NULL);  
+  /* create and run (Nthread) threads */
+  if(final_range==0){
+    for(i=0;i<Nthread;i++){
+      parameter_vector[i].row_no = row_no;
+      parameter_vector[i].thread_id = i;      
+      pthread_create(&thread_id[i],&attr,test_dominance_excluded_helper,&parameter_vector[i]);    
+      row_no += range;
+    }
+  }
+  else{
+    for(i=0;i<Nthread-1;i++){      
+      parameter_vector[i].row_no = row_no;
+      parameter_vector[i].thread_id = i;  
+      pthread_create(&thread_id[i],&attr,test_dominance_excluded_helper,&parameter_vector[i]);    
+      row_no += range;      
+    }
+    parameter_vector[i].row_no = row_no;
+    parameter_vector[i].range = final_range;
+    parameter_vector[i].thread_id = i;    
+    pthread_create(&thread_id[i],&attr,test_dominance_excluded_helper,&parameter_vector[i]);   
+  }
+  /* wait until all threads finish generating their dominant vectors */ 
+  pthread_barrier_wait(&barrier);
+  pthread_barrier_destroy(&barrier);
+  //cout<<"barrier destroyed!"<<endl;
+  /* build dominant vector from dominant matrix */
+  for(int j=0;j<dominant_matrix.size();j++){
+    dominant_vector.insert(dominant_vector.end(),dominant_matrix[j].begin(),dominant_matrix[j].end());
+  }
   /* purge F according to the dominant vector */
   itr = F.vSet.begin();
-  for(int j=0;j<dominant.size();j++){
-    if(!dominant[j]){
+  for(int j=0;j<dominant_vector.size();j++){
+    if(!dominant_vector[j]){
       itr = F.vSet.erase(itr);
     }
     else{
@@ -115,7 +175,7 @@ void purge(vectorSet &F){
   free_mem(lp,row);
 }
 
-vector<bool> test_dominance_excluded(lprec *lp_copy, int row_no, int range){
+vector<bool> test_dominance_excluded(lprec *lp_copy, int row_no, int range, float epsilon){
   lprec *lp;
   vector<bool> dominant(range,true);
   int Ncol,Nrow,result;
@@ -140,17 +200,15 @@ vector<bool> test_dominance_excluded(lprec *lp_copy, int row_no, int range){
       continue;
     }
     /* solve the model */
-    //print_lp(lp);
-    //cout<<"starting solving!"<<endl;
-    result = solve(lp);
-    //cout<<"finish solving!"<<endl;
+    //print_lp(lp);    
+    result = solve(lp);    
     /* modify dominant vector according to the result */
     if(result==OPTIMAL){
       if(!get_primal_solution(lp,pv)){
         cerr<<"couldn't get the solution!"<<endl;
         continue;
       }
-      if(pv[0]<lp_epsilon) {
+      if(pv[0]<epsilon) {
         //cout<<"optimal but small objective"<<endl;
         dominant[i] = false;
       }
@@ -177,11 +235,36 @@ vector<bool> test_dominance_excluded(lprec *lp_copy, int row_no, int range){
       continue;
     }
   }  
-  delete_lp(lp);
+  delete_lp(lp);  
   return dominant;
 }
 
-vectorSet purge2(vectorSet &F){
+void *test_dominance_excluded_helper(void *arg){  
+  parameter *temp_parameter = (parameter*) arg;
+  vector<bool> tempVec;  
+  tempVec = test_dominance_excluded(temp_parameter->lp,temp_parameter->row_no,
+    temp_parameter->range,temp_parameter->epsilon);
+/*    
+  pthread_mutex_lock(&dominant_matrix_lock);
+  cout<<"own id:"<<pthread_self()<<endl;
+  cout<<"thread id:"<<temp_parameter->thread_id<<" row_no:"<<temp_parameter->row_no
+      <<" range:"<<temp_parameter->range<<endl;
+  cout<<"dominant vector:";
+  for(int i=0;i<tempVec.size();i++){
+    cout<<tempVec[i]<<" ";
+  }
+  cout<<endl;
+  pthread_mutex_unlock(&dominant_matrix_lock);
+*/  
+  pthread_mutex_lock(&dominant_matrix_lock);
+  dominant_matrix[temp_parameter->thread_id] = tempVec;
+  pthread_mutex_unlock(&dominant_matrix_lock);
+  /* wait until all threads finish generating their dominant vectors */  
+  pthread_barrier_wait(&barrier);
+  pthread_exit(0);
+}
+
+vectorSet purge2(vectorSet &F, float epsilon){
   vectorSet W;
   sVector temp_sVec;
   int size_S,idx,max_idx;
@@ -227,7 +310,7 @@ vectorSet purge2(vectorSet &F){
     /* test_dominance will return the coordinate x(x_1, ... ,x_|S|) where
        the vector v dominates "most" or simply (-1.0, ... ,-1.0) if v is
        not dominant against F */
-    temp_sVec = test_dominance(F.vSet.front().sVec,W);    
+    temp_sVec = test_dominance(F.vSet.front().sVec,W,epsilon);    
     if(temp_sVec.empty()){
       /* the tested vector v is not dominant against W or some error
          happens during testing, so we just remove v from F */
@@ -252,7 +335,7 @@ vectorSet purge2(vectorSet &F){
   return W;
 }
 
-sVector test_dominance(const sVector &b, const vectorSet &F){  
+sVector test_dominance(const sVector &b, const vectorSet &F, float epsilon){
   lprec *lp;  
   int Ncol,Nrow,result,size_S,i;
   REAL *row;
@@ -335,17 +418,18 @@ sVector test_dominance(const sVector &b, const vectorSet &F){
   set_scaling(lp, SCALE_NONE);
   set_add_rowmode(lp,FALSE);
   //set_epslevel(lp, EPS_MEDIUM); // default is EPS_TIGHT
+  /* Sometimes the solver runs in an infinite loop. This may be the 
+     result of not scalling. To overcome that we put a timeout. */
+  set_timeout(lp,10);
   /* solve the model */
-  //print_lp(lp);
-  //cout<<"start solving!"<<endl;
-  result = solve(lp);
-  //cout<<"finish solving!"<<endl;
+  //print_lp(lp);  
+  result = solve(lp); 
   if(result==OPTIMAL){
     if(!get_primal_solution(lp,pv)){
       cerr<<"couldn't get the solution!"<<endl;
       return temp_sVec;
     }
-    if(pv[0]<lp_epsilon) {
+    if(pv[0]<epsilon) {
       //cout<<"optimal but small objective"<<endl;      
     }
     else{      
