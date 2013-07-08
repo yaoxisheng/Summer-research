@@ -13,7 +13,7 @@ using namespace std;
 errorPomdp e;
 
 float lp_epsilon=1e-6;
-int cores=4;
+int cores=8;
 
 pomdp::pomdp(string file){
   read_file(file);
@@ -157,7 +157,7 @@ vector<vector<vectorSet> > projection(const vectorSet &B, float gamma, const vec
   for(int i=0;i<T_Matrix.size();i++){
     B_p[i].resize(T_Matrix[i].size());
     for(int j=0;j<T_Matrix[i].size();j++){
-      cout<<"Projecting list at (a,z)= (" << i<< "," << j << ")" <<endl;
+      //cout<<"Projecting list at (a,z)= (" << i<< "," << j << ")" <<endl;
       B_p[i][j] = projection_list(B,gamma,T_Matrix[i][j],r_Matrix[i],valid_Matrix[i][j],T_Matrix[0].size());      
       /* set index */
       B_p[i][j].set_index(i,j);
@@ -173,8 +173,9 @@ vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &T_a_z,
   sVector temp_sVec;
   sNode temp_sNode;
   int size_S=T_a_z.size();
-  if(!valid){
-    cout<<"Invalid (a,z)" << endl;
+
+  if(!valid) {
+    //cout<<"Invalid (a,z)" << endl;
     temp_sVec.resize(size_S);
     for(int i=0;i<size_S;i++){
       temp_sVec[i] = r_a[i]/size_Z;
@@ -242,9 +243,9 @@ vectorSet cross_sum_list(const vector<vectorSet> &B_p_a){
   }
   /* sort and unique the vSet before purging */
   temp_vSet.sort_unique();
-  //cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;
+  cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;
   temp_vSet = purge(temp_vSet,cores,lp_epsilon);  
-  //cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
+  cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
   return temp_vSet;
 }
 
@@ -276,11 +277,12 @@ vectorSet vSet_union(const vector<vectorSet> &B_c){
     for(auto itr=B_c[i].vSet.begin();itr!=B_c[i].vSet.end();++itr){      
       temp_vSet.vSet.push_back(*itr);
     }    
+    /* sort and unique the vSet before purging */
+    cout << i << endl;
+    temp_vSet.sort_unique();  
+    cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;    
+    temp_vSet = purge(temp_vSet,cores,lp_epsilon);
+    cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
   }
-  /* sort and unique the vSet before purging */
-  temp_vSet.sort_unique();
-  //cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;    
-  temp_vSet = purge(temp_vSet,cores,lp_epsilon);
-  //cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
   return temp_vSet;
 }
