@@ -12,7 +12,7 @@ using namespace std;
 
 errorPomdp e;
 
-float lp_epsilon=1e-6;
+float lp_epsilon=1e-3;
 int cores=8;
 
 pomdp::pomdp(string file){
@@ -155,6 +155,7 @@ vector<vector<vectorSet> > projection(const vectorSet &B, float gamma, const vec
   vector<vector<vectorSet> > B_p;
   B_p.resize(T_Matrix.size());
   for(int i=0;i<T_Matrix.size();i++){
+    //cout<<"Projecting list at a= " << i << endl;
     B_p[i].resize(T_Matrix[i].size());
     for(int j=0;j<T_Matrix[i].size();j++){
       //cout<<"Projecting list at (a,z)= (" << i<< "," << j << ")" <<endl;
@@ -191,9 +192,9 @@ vectorSet projection_list(const vectorSet &B, float gamma, const sMatrix &T_a_z,
   }
   /* sort and unique the vSet before purging */
   vSet_a_z.sort_unique();
-  cout<<"size before purge:"<<vSet_a_z.vSet.size()<<endl;
+  //cout<<"size before purge:"<<vSet_a_z.vSet.size()<<endl;
   vSet_a_z = purge(vSet_a_z,cores,lp_epsilon);
-  cout<<"size after purge:"<<vSet_a_z.vSet.size()<<endl;
+  //cout<<"size after purge:"<<vSet_a_z.vSet.size()<<endl;
   return vSet_a_z;
 }
 
@@ -218,7 +219,7 @@ vector<vectorSet> cross_sum(const vector<vector<vectorSet> > &B_p){
   vector<vectorSet> B_c;  
   B_c.resize(B_p.size());  
   for(int i=0;i<B_p.size();i++){
-    //cout<<"Crosssuming lists at a=" << i<<endl;
+    //cout<<"Crosssuming lists at a=" << i<< endl;
     B_c[i] = cross_sum_list(B_p[i]);
     /* set index */
     B_c[i].set_index(i,-1);
@@ -243,9 +244,9 @@ vectorSet cross_sum_list(const vector<vectorSet> &B_p_a){
   }
   /* sort and unique the vSet before purging */
   temp_vSet.sort_unique();
-  cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;
+  //cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;
   temp_vSet = purge(temp_vSet,cores,lp_epsilon);  
-  cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
+  //cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
   return temp_vSet;
 }
 
@@ -278,11 +279,11 @@ vectorSet vSet_union(const vector<vectorSet> &B_c){
       temp_vSet.vSet.push_back(*itr);
     }    
     /* sort and unique the vSet before purging */
-    cout << i << endl;
+    //cout << "Unioning list at a="<< i << endl;
     temp_vSet.sort_unique();  
-    cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;    
+    //cout<<"size before purge:"<<temp_vSet.vSet.size()<<endl;    
     temp_vSet = purge(temp_vSet,cores,lp_epsilon);
-    cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
+    //cout<<"size after purge:"<<temp_vSet.vSet.size()<<endl;
   }
   return temp_vSet;
 }

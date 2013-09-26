@@ -23,8 +23,8 @@ bool isEqual(const sVector &a, const sVector &b, float epsilon){
   }
   for(int i=0;i<a.size();i++){
     /* if the absolute difference of two numbers is smaller than
-       or equal to epsilon, we consider them equal */
-    if(abs(a[i]-b[i])>epsilon){
+       epsilon, we consider them equal */
+    if(abs(a[i]-b[i])>=epsilon){
       return false;
     }
   }
@@ -40,8 +40,8 @@ bool comp2(const sVector &a, const sVector &b){
   /* compare two sVecs lexicographically */
   auto first1=a.begin(),last1=a.end(),first2=b.begin(),last2=b.end();
   while(first1!=last1){
-    if(first2==last2 || *first1-*first2>sort_unique_epsilon) return false;
-    else if(*first2-*first1>sort_unique_epsilon) return true;
+    if(first2==last2 || *first1-*first2>=sort_unique_epsilon) return false;
+    else if(*first2-*first1>=sort_unique_epsilon) return true;
     ++first1;
     ++first2;
   }

@@ -1,6 +1,7 @@
 #include<iostream>
 #include<string>
 #include<cmath>
+#include<algorithm>
 #include<sstream>
 #include<pthread.h>
 #include"purge.h"
@@ -14,6 +15,7 @@ using namespace std;
 vector<vector<bool> > dominant_matrix;
 pthread_mutex_t dominant_matrix_lock;
 int purge_type = PURGE2;
+int time_out = 10;
 
 vectorSet purge(vectorSet &F, int cores, float epsilon){
   if(purge_type==PURGE1){
@@ -31,13 +33,11 @@ void purge1(vectorSet &F, int cores, float epsilon){
   lprec *lp;
   vector<bool> dominant_vector;
   list<sNode>::iterator itr;
-  int Ncol,Nrow,Nthread,result,size_S,row_no,range,final_range,i;
+  int Ncol,Nrow,Nthread,result,size_S,row_no,range,final_range,i,m;
   REAL *row;
-  
   size_S = F.vSet.begin()->sVec.size();
   Ncol = size_S + 2;
-  Nrow = 1 + F.vSet.size();
-  
+  Nrow = 1+F.vSet.size();
   /* check if F is empty */
   if(F.vSet.size()<=1){
     //cout<<"F has only one element, so it is not purged"<<endl;
@@ -55,9 +55,8 @@ void purge1(vectorSet &F, int cores, float epsilon){
     cerr<<"couldn't allocate space!"<<endl;
     return;
   }
-  
-  /* pre-allocate the memory to make setting constraints faster */
-  resize_lp(lp, Nrow, get_Ncolumns(lp));  
+
+  resize_lp(lp, Nrow, get_Ncolumns(lp));
 
   /* set the objective function: ε */
   for(i=1;i<=size_S;i++){    
@@ -112,7 +111,7 @@ void purge1(vectorSet &F, int cores, float epsilon){
 
   /* Although not needed we also set upper bounds for x_i <=1 */
   for(i=1;i<=size_S;i++) {
-    if(!set_bounds(lp,i,0.0,1.0)) {
+    if(!set_bounds(lp, i, 0.0, 1.0)) {
       cerr<<"couldn't set the bound!"<<endl;
       return;
     }
@@ -121,51 +120,40 @@ void purge1(vectorSet &F, int cores, float epsilon){
   /* set objective function to maximize and other solver settings */
   set_maxim(lp);  
   set_verbose(lp,IMPORTANT);
-  set_scaling(lp,SCALE_NONE);
+  set_scaling(lp, SCALE_NONE); // default is SCALE_GEOMETRIC + SCALE_EQUILIBRATE + SCALE_INTEGERS (196)
+  //set_epslevel(lp, EPS_LOOSE); // default is EPS_TIGHT
   //set_epslevel(lp, EPS_MEDIUM); // default is EPS_TIGHT
-  /* Sometimes the solver runs in an infinite loop. This may be the
-     result of not scalling. To overcome that we put a timeout. */
-  set_timeout(lp,10);
+  // Sometimes the solver runs in an infinite loop. This may be the result of not scalling. To overcome that we put a timeout.
+  set_timeout(lp, time_out);
 
-  /* test dominance for each vector v in F, each core tests from
-     v to (v + range - 1) */        
+  /* test dominance for each vector v in F, every time test from
+     v to (v + range - 1) */
   /* initialize parameters */
   row_no = 2;
-  if(cores>=F.vSet.size()){
-    range = 1;
-    final_range = 0;    
-    Nthread = F.vSet.size();
-  }
-  else{
-    range = F.vSet.size()/cores;
-    final_range = F.vSet.size() - range * (cores -1);
-    Nthread = cores;
-  }
+  range = F.vSet.size()/cores;
+  final_range = range + 1;
+  m = F.vSet.size()%cores;
+  Nthread = min(cores,(int)F.vSet.size());
+
   pthread_t thread_id[Nthread];
-  vector<parameter> parameter_vector(Nthread,{lp,0,range,epsilon,0});
+  vector<parameter> parameter_vector(Nthread,{lp,0,0,epsilon,0});
   dominant_matrix.resize(Nthread);  
   pthread_mutex_init(&dominant_matrix_lock,NULL);
    
   /* create and run (Nthread) threads */
-  if(final_range==0){  
-    for(i=0;i<Nthread;i++){
-      parameter_vector[i].row_no = row_no;
-      parameter_vector[i].thread_id = i;      
-      pthread_create(&thread_id[i],NULL,test_dominance_excluded_helper,&parameter_vector[i]);    
-      row_no += range;
-    }
-  }
-  else{
-    for(i=0;i<Nthread-1;i++){      
-      parameter_vector[i].row_no = row_no;
-      parameter_vector[i].thread_id = i;  
-      pthread_create(&thread_id[i],NULL,test_dominance_excluded_helper,&parameter_vector[i]);    
-      row_no += range;      
-    }
+  for(i=0;i<m;i++){
     parameter_vector[i].row_no = row_no;
     parameter_vector[i].range = final_range;
-    parameter_vector[i].thread_id = i;    
-    pthread_create(&thread_id[i],NULL,test_dominance_excluded_helper,&parameter_vector[i]);   
+    parameter_vector[i].thread_id = i;       
+    pthread_create(&thread_id[i],NULL,test_dominance_excluded_helper,&parameter_vector[i]);    
+    row_no += final_range;
+  }
+  for(;i<Nthread;i++){
+    parameter_vector[i].row_no = row_no;
+    parameter_vector[i].range = range;
+    parameter_vector[i].thread_id = i;
+    pthread_create(&thread_id[i],NULL,test_dominance_excluded_helper,&parameter_vector[i]);    
+    row_no += range;
   }
   
   /* wait until all threads finish generating their dominant vectors */ 
@@ -202,7 +190,7 @@ vector<bool> test_dominance_excluded(lprec *lp_copy, int row_no, int range, floa
   /* copy the model from lp_copy */
   lp = copy_lp(lp_copy);
   if(lp==NULL) {
-    cerr<<"couldn't copy the LP!"<<endl;
+    cerr << "Could not copy the LP!" << endl;
     return dominant;
   }
 
@@ -217,8 +205,11 @@ vector<bool> test_dominance_excluded(lprec *lp_copy, int row_no, int range, floa
       cerr<<"couldn't set the constraint type!"<<endl;
       continue;
     }
+
+    //print_lp(lp);
+
     /* solve the model */
-    result = solve(lp);    
+    result = solve(lp);
     /* modify dominant vector according to the result */
     if(result==OPTIMAL){
       if(!get_primal_solution(lp,pv)){
@@ -260,7 +251,7 @@ void *test_dominance_excluded_helper(void *arg){
   parameter *temp_parameter = (parameter*) arg;
   vector<bool> tempVec;
   tempVec = test_dominance_excluded(temp_parameter->lp,temp_parameter->row_no,
-    temp_parameter->range,temp_parameter->epsilon);
+    temp_parameter->range,temp_parameter->epsilon); 
   pthread_mutex_lock(&dominant_matrix_lock);
   dominant_matrix[temp_parameter->thread_id] = tempVec;
   pthread_mutex_unlock(&dominant_matrix_lock);
@@ -275,13 +266,11 @@ vectorSet purge2(vectorSet &F, float epsilon){
   vector<bool> dominant(F.vSet.size(),false);
   list<sNode>::iterator max_itr;
   size_S = F.vSet.begin()->sVec.size();
-  
   /* check if F is empty */
   if(F.vSet.size()<=1){
-    //cout<<"F has only one element, so it is not purged"<<endl;
+    cout<<"F has only one element, so it is not purged"<<endl;
     return F;
   }  
-  
   /* select trivial dominant vectors in F and move them to W */
   for(int i=0;i<size_S;i++){
     idx = 0;
@@ -289,7 +278,8 @@ vectorSet purge2(vectorSet &F, float epsilon){
     max_itr = F.vSet.begin();
     max = max_itr->sVec[i];
     for(auto itr=F.vSet.begin();itr!=F.vSet.end();++itr){
-      if((itr->sVec[i]>max) || (itr->sVec[i]==max) && comp2(max_itr->sVec,itr->sVec)){
+      if((itr->sVec[i]-max>=epsilon) || (abs(itr->sVec[i]-max)<epsilon &&
+          comp2(max_itr->sVec,itr->sVec))){
         max_idx = idx;
         max_itr = itr;
         max = max_itr->sVec[i];        
@@ -309,12 +299,11 @@ vectorSet purge2(vectorSet &F, float epsilon){
     }
     idx++;
   }  
-  
   /* test dominance for remaining vectors in F against W, if dominant,
      move it from F to W, otherwise just remove it from F */
   while(!F.vSet.empty()){
     /* test_dominance will return the coordinate x(x_1, ... ,x_|S|) where
-       the vector v dominates "most" or simply an empty vector if v is
+       the vector v dominates "most" or simply (-1.0, ... ,-1.0) if v is
        not dominant against F */
     temp_sVec = test_dominance(F.vSet.front().sVec,W,epsilon);    
     if(temp_sVec.empty()){
@@ -329,8 +318,8 @@ vectorSet purge2(vectorSet &F, float epsilon){
     max_itr = F.vSet.begin();    
     max = dot(max_itr->sVec,temp_sVec);   
     for(auto itr=F.vSet.begin();itr!=F.vSet.end();++itr){
-      if((dot(itr->sVec,temp_sVec)>max) ||
-         ((dot(itr->sVec,temp_sVec)==max) && comp2(max_itr->sVec,itr->sVec))){
+      if((dot(itr->sVec,temp_sVec)-max>=epsilon) ||
+         (abs(dot(itr->sVec,temp_sVec)-max)<epsilon && comp2(max_itr->sVec,itr->sVec))){
         max_itr = itr;
         max = dot(max_itr->sVec,temp_sVec);
       }
@@ -346,12 +335,10 @@ sVector test_dominance(const sVector &b, const vectorSet &F, float epsilon){
   int Ncol,Nrow,result,size_S,i;
   REAL *row;
   sVector temp_sVec;
-  
   size_S = F.vSet.begin()->sVec.size();
   Ncol = size_S + 2;
   Nrow = 1 + F.vSet.size();
   REAL pv[1+Nrow+Ncol];
-  
   /* build the model and allocate space */  
   lp = make_lp(0,Ncol);
   if(lp==NULL){
@@ -363,11 +350,9 @@ sVector test_dominance(const sVector &b, const vectorSet &F, float epsilon){
     cerr<<"couldn't allocate space!"<<endl;
     return temp_sVec;
   }
-  
-  /* pre-allocate the memory to make setting constraints faster */
   resize_lp(lp,Nrow,Ncol);
-  
-  /* set the objective function: ε */  
+  /* set the objective function: ε */
+  set_add_rowmode(lp,FALSE);  
   for(i=1;i<=size_S;i++){    
     row[i] = 0;
   }
@@ -377,13 +362,8 @@ sVector test_dominance(const sVector &b, const vectorSet &F, float epsilon){
     cerr<<"couldn't set the objective function!"<<endl;
     return temp_sVec;
   }
-  
-  if(!set_add_rowmode(lp,TRUE)) {
-    cerr<<"The mode was already set to TRUE..."<<endl;
-    return temp_sVec;
-  }
-  
-  /* construct the row: Σx_i = 1 */  
+  /* construct the row: Σx_i = 1 */
+  set_add_rowmode(lp,TRUE);
   for(i=1;i<=size_S;i++){
     row[i] = 1;
   }  
@@ -392,8 +372,7 @@ sVector test_dominance(const sVector &b, const vectorSet &F, float epsilon){
   if(!add_constraint(lp,row,EQ,1)){  
     cerr<<"couldn't set the row!"<<endl;
     return temp_sVec;
-  }
-  
+  }  
   /* construct the row: v = b^T*x */  
   for(i=1;i<=size_S;i++){
     row[i] = b[i-1];
@@ -404,7 +383,6 @@ sVector test_dominance(const sVector &b, const vectorSet &F, float epsilon){
     cerr<<"couldn't set the row!"<<endl;
     return temp_sVec;
   }  
-  
   /* construct |F| rows: α_i^T*x - v + ε <= 0 */    
   for(auto itr=F.vSet.begin();itr!=F.vSet.end();++itr){        
     for(i=1;i<=size_S;i++){
@@ -417,18 +395,11 @@ sVector test_dominance(const sVector &b, const vectorSet &F, float epsilon){
       return temp_sVec;
     }
   }
-  
-  if(!set_add_rowmode(lp,FALSE)) {
-    cerr<<"The mode was already FALSE..."<<endl;
-    return temp_sVec;
-  }
-  
   /* set the bounds for v: -Inf to +Inf */
   if(!set_bounds(lp,Ncol-1,-get_infinite(lp),get_infinite(lp))){
     cerr<<"couldn't set the bounds!"<<endl;
     return temp_sVec;
   }
-  
   /* Although not needed we also set upper bounds for x_i <=1 */
   for(i=1;i<=size_S;i++) {
     if(!set_bounds(lp,i,0.0,1.0)) {
@@ -436,7 +407,6 @@ sVector test_dominance(const sVector &b, const vectorSet &F, float epsilon){
       return temp_sVec;
     }
   }
-  
   /* set objective function to maximize and other solver settings */
   set_maxim(lp);  
   set_verbose(lp,IMPORTANT);
@@ -445,9 +415,9 @@ sVector test_dominance(const sVector &b, const vectorSet &F, float epsilon){
   //set_epslevel(lp, EPS_MEDIUM); // default is EPS_TIGHT
   /* Sometimes the solver runs in an infinite loop. This may be the 
      result of not scalling. To overcome that we put a timeout. */
-  set_timeout(lp,10);
-  
+  set_timeout(lp,time_out);
   /* solve the model */
+  //print_lp(lp);  
   result = solve(lp); 
   if(result==OPTIMAL){
     if(!get_primal_solution(lp,pv)){

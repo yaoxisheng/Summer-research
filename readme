@@ -1,0 +1,18 @@
+how to compile test_pomdp(including purging):
+g++ -std=c++0x struct.cpp vectorSet.cpp pomdp.cpp purge.cpp test_pomdp.cpp liblpsolve55.a -ldl
+
+how to compile test_purge:
+g++ -std=c++0x struct.cpp vectorSet.cpp pomdp.cpp purge.cpp test_purge.cpp liblpsolve55.a -ldl
+
+
+
+Achilles:
+(you need to have installed the lpsolve library)
+
+Compile:
+
+g++ -std=c++0x -O3 struct.cpp vectorSet.cpp pomdp.cpp purge.cpp test_pomdp.cpp -llpsolve55 -lpthread -I/usr/include/lpsolve -o test_pomdp
+
+Run:
+
+./test_pomdp filename number_of iterations

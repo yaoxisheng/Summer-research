@@ -6,15 +6,15 @@
 
 using namespace std;
 
+static float lp_epsilon = 1e-6;
+static int cores = 1;
+
 int main(int argc, char* argv[]){
-  pomdp p("pomdp1");
+  int i=0;
   vectorSet F;
-  list<sVector> tempList;
-  vector<sVector> tempVec;
-  int i=0; 
-  tempVec = p.get_r_Matrix();
-  tempList.assign(tempVec.begin(),tempVec.end());
-  F.set_vSet(tempList);
+  F.set_vSet("testcase1");
+  F.sort_unique();
+  
   for(auto itr=F.vSet.begin();itr!=F.vSet.end();++itr){
     itr->index_a=i;
     itr->index_z=-1;
@@ -23,8 +23,10 @@ int main(int argc, char* argv[]){
   cout<<"before purge:"<<endl;
   print_vSet(F);
   cout<<endl;
-  purge(F);
-  //F = purge2(F);
+  
+  F = purge(F,cores,lp_epsilon);
+  F.sort_unique();
+  
   cout<<"after purge:"<<endl;
   print_vSet(F);
 }
